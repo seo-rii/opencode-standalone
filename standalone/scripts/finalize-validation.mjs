@@ -4,8 +4,7 @@ import { createHash } from "node:crypto"
 import { readFile, writeFile } from "node:fs/promises"
 import { basename, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { brotliDecompressSync } from "node:zlib"
-import { alphabet, decodePayload } from "./encoding.mjs"
+import { decodePackedPayload } from "./pack.mjs"
 import { archiveFormat, decodeAssetArchive } from "../web/runtime.mjs"
 
 const directory = fileURLToPath(new URL("../", import.meta.url))
@@ -13,7 +12,7 @@ const repository = resolve(directory, "..")
 const baseline = { bytes: 43_942_518, sha256: "09793cdadc6642dd48e343d67bbbe9a4320c407e151a5901115ea7555ba2ecb8" }
 const headlessBytes = 35_628_036
 const publishedBytes = 37_595_298
-const requiredTests = ["test/tui-cli.test.ts", "test/browser-pty.test.mjs", "test/encoding-memory.test.mjs", "test/pack.test.mjs", "web/archive.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
+const requiredTests = ["test/tui-cli.test.ts", "test/browser-pty.test.mjs", "test/encoding-memory.test.mjs", "test/pack.test.mjs", "test/utf8-encoding.test.mjs", "web/archive.test.mjs", "web/runtime.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
 
 /** Publish documentation only after the exact complete artifact has a green receipt. */
 export async function finalizeValidation() {
@@ -61,7 +60,8 @@ export async function finalizeValidation() {
     const record = report.payloads?.[name]
     for (const field of ["offset", "length", "storedBytes", "bytes"]) assert.ok(Number.isSafeInteger(record?.[field]) && record[field] >= 0, `Invalid ${name} payload ${field}`)
     assert.ok(record.bytes > 0 && record.length > 0, `Empty ${name} payload`)
-    assert.equal(record.encoding, `base${alphabet.length}`, `Unsupported ${name} payload encoding`)
+    assert.ok(["base95", "utf8-words"].includes(record.encoding), `Unsupported ${name} payload encoding`)
+    assert.equal(record.encoding, report.payloads.app.encoding, "Packed payload encodings differ")
     assert.equal(typeof record.brotli, "boolean", `Invalid ${name} compression flag`)
   }
 
@@ -77,8 +77,7 @@ export async function finalizeValidation() {
   const web = report.payloads.web
   const start = Number(base[1]) + web.offset
   assert.ok(start >= Number(base[1]) && start + web.length <= bytes.length, "Browser payload exceeds the artifact")
-  const stored = decodePayload(bytes.subarray(start, start + web.length), web.storedBytes, alphabet)
-  const archive = web.brotli ? brotliDecompressSync(stored) : stored
+  const archive = decodePackedPayload(bytes.subarray(start, start + web.length), web)
   assert.equal(archive.length, web.bytes, "Decoded browser payload size differs from the build receipt")
   assert.equal(archive.length, equivalence.newArchiveBytes, "Browser archive size differs from the comparison receipt")
   assert.equal(hash(archive), equivalence.newArchiveSha256, "Browser archive differs from the byte-preserved comparison")
@@ -99,6 +98,7 @@ export async function finalizeValidation() {
   assert.equal(info.status, 0, `Artifact metadata command failed: ${info.stderr}`)
   const metadata = JSON.parse(info.stdout)
   assert.equal(metadata.name, "opencode-standalone")
+  assert.equal(metadata.payloadEncoding, report.payloads.app.encoding, "Artifact metadata identifies a different payload encoding")
   assert.equal(metadata.upstream, upstream.commit)
   assert.equal(metadata.interactiveTui, true, "Artifact does not enable the actual interactive TUI")
   assert.equal(metadata.miniTui, true, "Artifact does not enable the actual mini TUI")
@@ -234,7 +234,9 @@ The complete verified file is **${n(bytes.length)} bytes**, ${compared(baseline.
 
 The application is minified with keepNames enabled, Brotli-compressed with a 16 MiB window and stored as comment-safe **${report.payloads.app.encoding}**. This shares repeated parser resources without changing the JavaScript or function names. The TUI factory has an independent compressed module inside the same JS file; it is not a second distribution file. Standard Node APIs decode the selected payload without extracting modules, WASM, addons or browser assets.
 
-| Payload | Input bytes | Stored bytes | ASCII bytes |
+The payload encoding uses fixed four-byte UTF-8 words and a pinned Unicode range table. It contains no NUL, ASCII controls, bidi/format controls, surrogates, Unicode noncharacters or comment-closing delimiters. The complete file remains valid UTF-8 JavaScript. Its Unicode source can use roughly 20–30 MiB more parsing memory than ASCII-only source; measured startup time stayed within run-to-run variation after decoder optimization. The legacy base95 packing API remains available for comparison.
+
+| Payload | Input bytes | Stored bytes | UTF-8 bytes |
 | --- | ---: | ---: | ---: |
 ${payloadRows}
 

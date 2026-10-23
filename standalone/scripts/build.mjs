@@ -20,6 +20,7 @@ const directory = path.join(root, "standalone")
 const tuiPreview = process.argv.includes("--tui-preview")
 const fromTuiPreview = process.argv.includes("--from-tui-preview")
 const repack = process.argv.includes("--repack")
+const payloadEncoding = "utf8-words"
 if (fromTuiPreview && !repack) throw new Error("--from-tui-preview requires --repack to explicitly select the compiled preview cache")
 const tuiModule = "opencode-standalone:tui"
 const require = createRequire(import.meta.url)
@@ -281,14 +282,14 @@ const webLicenses = web ? await readFile(path.join(directory, ".cache/web/licens
 const tuiLicenses = (await Promise.all(["LICENSES.txt", "yoga-LICENSE.txt", "renderer-runtime-LICENSES.txt", "parser/LICENSES.txt", "image/LICENSES.txt", "terminal/LICENSES.txt"].map((file) => readFile(path.join(directory, "tui", file), "utf8")))).join("\n")
 const licenses = await notices(root, modules, assets.keys()) + "\n" + webLicenses + "\n" + tuiLicenses
 const packed = packArtifact({
-  name: "opencode-standalone", upstream, experimental: true, runtime: "Node.js >=26.4",
+  name: "opencode-standalone", upstream, experimental: true, runtime: "Node.js >=26.4", payloadEncoding,
   embeddedWasm: true, browserAssets: !!web, interactiveTui: true, miniTui: true, embeddedTerminal: true, hostClipboard: true, fullParity: false,
 }, {
   // A 16 MiB window can share parser resources across this 28 MB module.
   app: { bytes: appCode, quality: tuiPreview ? 4 : 11, window: 24 }, pty: { bytes: ptyCode }, daemon: { bytes: daemonCode }, licenses: { bytes: licenses },
   tui: { bytes: tuiCode, quality: 11 },
   web: { bytes: web ?? Buffer.concat([emptyWebHeader, emptyWebIndex]), quality: 6 },
-})
+}, { encoding: payloadEncoding })
 const destination = path.join(directory, tuiPreview ? ".cache/tui-integration" : "dist")
 await mkdir(destination, { recursive: true })
 const output = path.join(destination, "opencode-standalone.js")

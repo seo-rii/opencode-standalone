@@ -1,9 +1,22 @@
-import { brotliCompressSync, constants } from "node:zlib"
+import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib"
+import { isUtf8 } from "node:buffer"
 import { alphabet, encodePayload, decodePayload } from "./encoding.mjs"
+import { utf8Ranges, encodeUtf8Payload, decodeUtf8Payload } from "./utf8.mjs"
+
+export function decodePackedPayload(encoded, entry) {
+  if (encoded.length !== entry.length) throw new Error("Truncated standalone payload")
+  if (entry.encoding !== "base95" && entry.encoding !== "utf8-words") throw new Error("Unknown embedded payload encoding")
+  const bytes = entry.encoding === "utf8-words" ? decodeUtf8Payload(encoded, entry.storedBytes, utf8Ranges) : decodePayload(encoded, entry.storedBytes, alphabet)
+  const raw = entry.brotli ? brotliDecompressSync(bytes) : bytes
+  if (raw.length !== entry.bytes) throw new Error("Embedded payload size differs from its record")
+  return raw
+}
 
 // The payload lives in a comment: Node need not parse a giant JS string for web
 // assets. Offsets refer to this same file; no executable or asset is extracted.
-export function packArtifact(metadata, inputs) {
+export function packArtifact(metadata, inputs, options = {}) {
+  const encoding = options.encoding ?? "base95"
+  if (encoding !== "base95" && encoding !== "utf8-words") throw new Error("Unknown embedded payload encoding")
   let offset = 0
   const entries = Object.entries(inputs).map(([name, input]) => {
     const raw = Buffer.from(input.bytes)
@@ -13,8 +26,8 @@ export function packArtifact(metadata, inputs) {
         [constants.BROTLI_PARAM_LGWIN]: input.window ?? 22,
       },
     })
-    const encoded = encodePayload(data)
-    const record = { offset, length: encoded.length, encoding: "base95", brotli: input.compressed !== false, storedBytes: data.length, bytes: raw.length }
+    const encoded = encoding === "utf8-words" ? encodeUtf8Payload(data) : Buffer.from(encodePayload(data), "ascii")
+    const record = { offset, length: encoded.length, encoding, brotli: input.compressed !== false, storedBytes: data.length, bytes: raw.length }
     offset += encoded.length + 1
     return { name, encoded, record }
   })
@@ -32,7 +45,7 @@ export function packArtifact(metadata, inputs) {
     return;
   }
   const records = ${JSON.stringify(records)};
-  const decode = ${decodePayload.toString()};
+  const decode = ${(encoding === "utf8-words" ? decodeUtf8Payload : decodePayload).toString()};
   const base = Number("0000000000");
   const read = (name) => {
     const entry = records[name];
@@ -48,7 +61,7 @@ export function packArtifact(metadata, inputs) {
         position += count;
       }
     } finally { fs.closeSync(fd); }
-    const bytes = decode(encoded, entry.storedBytes, ${JSON.stringify(alphabet)});
+    const bytes = decode(encoded, entry.storedBytes, ${JSON.stringify(encoding === "utf8-words" ? utf8Ranges : alphabet)});
     return entry.brotli ? process.getBuiltinModule("node:zlib").brotliDecompressSync(bytes) : bytes;
   };
   if (process.argv[2] === "--standalone-licenses") {
@@ -78,6 +91,11 @@ export function packArtifact(metadata, inputs) {
 `
   const start = Buffer.byteLength(header + "\n/*\n")
   if (String(start).length > 10) throw new Error("Standalone header exceeds offset field")
-  const bytes = Buffer.from(header.replace('Number("0000000000")', `Number("${String(start).padStart(10, "0")}")`) + "\n/*\n" + entries.map((entry) => entry.encoded + "\n").join("") + "*/\n")
+  const bytes = Buffer.concat([
+    Buffer.from(header.replace('Number("0000000000")', `Number("${String(start).padStart(10, "0")}")`) + "\n/*\n"),
+    ...entries.flatMap((entry) => [entry.encoded, Buffer.from("\n")]),
+    Buffer.from("*/\n"),
+  ])
+  if (!isUtf8(bytes)) throw new Error("Standalone artifact must remain valid UTF-8")
   return { bytes, records }
 }
