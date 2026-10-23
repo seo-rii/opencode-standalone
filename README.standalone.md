@@ -21,7 +21,7 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 
 빌드에는 개발 의존성과 컴파일 도구가 필요합니다. 배포할 때는 dist/opencode-standalone.js 하나만 복사합니다. 모델 인증·설정은 원본 방식을 따르며, 실험적 Node 내장 FFI가 필요하면 런처가 같은 Node를 --experimental-ffi로 다시 실행합니다. --standalone-licenses로 포함된 고지를 확인할 수 있습니다.
 
-현재 검증 파일은 **37,586,057바이트 (37.59 MB)**이며, 최초 43,942,518바이트 대비 **14.47% 감소**했습니다. 정확히 이 파일이 **138/138개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
+현재 검증 파일은 **37,594,587바이트 (37.59 MB)**이며, 최초 43,942,518바이트 대비 **14.45% 감소**했습니다. 정확히 이 파일이 **156/156개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
 
 ## 구현
 
@@ -36,7 +36,7 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 | OpenTUI·Solid | 실제 배포된 JavaScript 클래스·Solid 화면·파서 작업 스레드와 원본 Context/Scene/Yoga의 WASM 연결 |
 | TUI 이미지 | 실제 PNG/JPEG/GIF/WebP·ICC·리사이즈 코드를 임베딩한 WASM, NativeImage/ImageRenderable·픽셀 대여 연결 |
 | TUI 내장 터미널 | 원본 OpenTUI가 고정한 Ghostty VT를 WASM으로 컴파일하고 실제 EmbeddedTerminalRenderable·지속형 PTY에 연결 |
-| OS 클립보드 | X11·Wayland 프로토콜로 텍스트·이미지 읽기, 텍스트 복사·지우기와 primary 선택 연결; 외부 클립보드 명령 없이 동작 |
+| OS 클립보드 | Linux X11·Wayland, macOS Pasteboard·ImageIO, Windows Win32·DIB 변환으로 텍스트·이미지 읽기와 텍스트 복사·지우기; 외부 클립보드 명령 없이 동작 |
 | 브라우저 자산 | 원본 웹 빌드의 1,688개 URL·파일 바이트를 보존한 아카이브 |
 
 기본·mini CLI는 파일 하나를 빈 디렉터리에 복사하고 PATH를 비운 실제 PTY에서 한글 입력, 100→44열 크기 변경, 로컬 모델 응답과 정상 종료를 검증합니다. 실제 Solid 화면의 스트리밍 Markdown·코드 강조·스크롤·화면 전환 후 편집도 44/100열에서 검사합니다. 운영 API 키와 외부 모델 서비스는 테스트에 사용하지 않습니다.
@@ -44,6 +44,8 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 기본 TUI에서 `/terminal`로 실제 셸을 열 수 있습니다. 같은 복사 파일의 테스트에서 한글·ANSI 색상 출력, 100→44열 크기 변경, 터미널 숨김·재열기 후 같은 셸 PID와 화면 복원, 셸 종료 후 정리까지 확인합니다.
 
 Linux 데스크톱에서는 OS 클립보드에서 텍스트·이미지를 읽고 텍스트를 복사할 수 있습니다. X11은 직접 소켓 프로토콜을 사용하고 Wayland는 ext/wlr data-control과 내장 FFI·libc로 파일 디스크립터를 전달합니다. `xclip`·`wl-copy` 등의 추가 실행 파일은 필요하지 않습니다. 실제 CLI의 Ctrl+V 한글 붙여넣기와, 별도 X 서버·compositor 및 독립 네이티브 클라이언트 사이의 양방향 전송을 검증합니다. 디스플레이가 없는 환경에서는 원본 정책의 OSC 52 복사 경로를 유지합니다.
+
+macOS는 Pasteboard·ImageIO, Windows는 user32·kernel32를 내장 FFI로 호출하는 클립보드 구현을 추가했습니다. 워커 코드도 JS 파일 안에 포함하며, 텍스트·PNG 읽기, 텍스트 쓰기·지우기와 TIFF/DIB→PNG 변환을 처리합니다. Linux에서 실제 FFI와 C ABI 검증 도구, 원본 Zig와의 DIB 변환 비교를 통과했습니다. **실제 macOS·Windows 실행은 아직 검증하지 않았으며**, 해당 OS에서 실행할 독립 검증 도구를 포함했습니다. 일반 PTY 등 다른 플랫폼 어댑터의 미구현 범위는 그대로 남아 있습니다.
 
 ## 검증
 

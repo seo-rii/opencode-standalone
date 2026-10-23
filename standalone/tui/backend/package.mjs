@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { clipboardWorkers } from "../../scripts/clipboard-workers.mjs"
 
 const directory = dirname(fileURLToPath(import.meta.url))
 export const standaloneBackendPath = join(directory, "index.mjs")
@@ -23,6 +24,7 @@ export async function standalonePackagePlugin({ transform = (_path, source) => s
   return {
     name: "opentui-standalone-backend",
     setup(build) {
+      clipboardWorkers().setup(build)
       build.onResolve({ filter: /^opencode:tui-backend$/ }, () => ({ path: standaloneBackendPath }))
       build.onLoad({ filter: /chunk-node-(?:p43t2gam|2rg7pskw)\.js$/ }, async ({ path }) => {
         const original = sources.get(path)

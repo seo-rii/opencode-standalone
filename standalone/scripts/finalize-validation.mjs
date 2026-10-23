@@ -11,7 +11,7 @@ const directory = fileURLToPath(new URL("../", import.meta.url))
 const repository = resolve(directory, "..")
 const baseline = { bytes: 43_942_518, sha256: "09793cdadc6642dd48e343d67bbbe9a4320c407e151a5901115ea7555ba2ecb8" }
 const headlessBytes = 35_628_036
-const requiredTests = ["test/tui-cli.test.ts", "test/encoding-memory.test.mjs", "test/pack.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/parser/parser.test.mjs"]
+const requiredTests = ["test/tui-cli.test.ts", "test/encoding-memory.test.mjs", "test/pack.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
 
 /** Publish documentation only after the exact complete artifact has a green receipt. */
 export async function finalizeValidation() {
@@ -51,7 +51,7 @@ export async function finalizeValidation() {
   assert.ok(Number.isSafeInteger(factory.compressedBytes) && factory.compressedBytes > 0, "Build must record the compressed TUI factory")
   assert.match(factory.sha256, /^[a-f0-9]{64}$/, "Build must record the TUI factory SHA-256")
   assert.deepEqual(report.tui.embeddedTerminal, terminalSources, "Embedded terminal source pins differ from the build receipt")
-  assert.deepEqual(report.tui.hostClipboard, { platform: "linux", providers: ["x11", "wayland"] }, "Build does not record the desktop clipboard providers")
+  assert.deepEqual(report.tui.hostClipboard, { platforms: { linux: ["x11", "wayland"], darwin: ["macos"], win32: ["windows"] }, nativeWorkerEmbedded: true }, "Build does not record the desktop clipboard providers")
   assert.match(report.compilation?.hostClipboardSourceSha256, /^[a-f0-9]{64}$/, "Build must identify the compiled host clipboard sources")
   for (const name of ["app", "pty", "daemon", "tui", "licenses", "web"]) {
     const record = report.payloads?.[name]
@@ -143,7 +143,7 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 | OpenTUI·Solid | 실제 배포된 JavaScript 클래스·Solid 화면·파서 작업 스레드와 원본 Context/Scene/Yoga의 WASM 연결 |
 | TUI 이미지 | 실제 PNG/JPEG/GIF/WebP·ICC·리사이즈 코드를 임베딩한 WASM, NativeImage/ImageRenderable·픽셀 대여 연결 |
 | TUI 내장 터미널 | 원본 OpenTUI가 고정한 Ghostty VT를 WASM으로 컴파일하고 실제 EmbeddedTerminalRenderable·지속형 PTY에 연결 |
-| OS 클립보드 | X11·Wayland 프로토콜로 텍스트·이미지 읽기, 텍스트 복사·지우기와 primary 선택 연결; 외부 클립보드 명령 없이 동작 |
+| OS 클립보드 | Linux X11·Wayland, macOS Pasteboard·ImageIO, Windows Win32·DIB 변환으로 텍스트·이미지 읽기와 텍스트 복사·지우기; 외부 클립보드 명령 없이 동작 |
 | 브라우저 자산 | 원본 웹 빌드의 ${n(equivalence.assetsCompared)}개 URL·파일 바이트를 보존한 아카이브 |
 
 기본·mini CLI는 파일 하나를 빈 디렉터리에 복사하고 PATH를 비운 실제 PTY에서 한글 입력, 100→44열 크기 변경, 로컬 모델 응답과 정상 종료를 검증합니다. 실제 Solid 화면의 스트리밍 Markdown·코드 강조·스크롤·화면 전환 후 편집도 44/100열에서 검사합니다. 운영 API 키와 외부 모델 서비스는 테스트에 사용하지 않습니다.
@@ -151,6 +151,8 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 기본 TUI에서 \`/terminal\`로 실제 셸을 열 수 있습니다. 같은 복사 파일의 테스트에서 한글·ANSI 색상 출력, 100→44열 크기 변경, 터미널 숨김·재열기 후 같은 셸 PID와 화면 복원, 셸 종료 후 정리까지 확인합니다.
 
 Linux 데스크톱에서는 OS 클립보드에서 텍스트·이미지를 읽고 텍스트를 복사할 수 있습니다. X11은 직접 소켓 프로토콜을 사용하고 Wayland는 ext/wlr data-control과 내장 FFI·libc로 파일 디스크립터를 전달합니다. \`xclip\`·\`wl-copy\` 등의 추가 실행 파일은 필요하지 않습니다. 실제 CLI의 Ctrl+V 한글 붙여넣기와, 별도 X 서버·compositor 및 독립 네이티브 클라이언트 사이의 양방향 전송을 검증합니다. 디스플레이가 없는 환경에서는 원본 정책의 OSC 52 복사 경로를 유지합니다.
+
+macOS는 Pasteboard·ImageIO, Windows는 user32·kernel32를 내장 FFI로 호출하는 클립보드 구현을 추가했습니다. 워커 코드도 JS 파일 안에 포함하며, 텍스트·PNG 읽기, 텍스트 쓰기·지우기와 TIFF/DIB→PNG 변환을 처리합니다. Linux에서 실제 FFI와 C ABI 검증 도구, 원본 Zig와의 DIB 변환 비교를 통과했습니다. **실제 macOS·Windows 실행은 아직 검증하지 않았으며**, 해당 OS에서 실행할 독립 검증 도구를 포함했습니다. 일반 PTY 등 다른 플랫폼 어댑터의 미구현 범위는 그대로 남아 있습니다.
 
 ## 검증
 
@@ -189,7 +191,9 @@ Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons
 
 Published OpenTUI classes run through real Context/Session/Scene/Yoga WASM: styled Unicode, editor history/selections/callbacks, scoped writable cell/pixel leases, native output tickets, custom paint recordings and Yoga measurements. Actual Solid components stream Markdown/code, scroll and resize, switch routes and edit the new focused input at 44/100 columns; the real parser worker is joined during cleanup. Kernel-input tests use a real PTY queue and tcflush, preserving later input.
 
-Host clipboard providers use direct X11 and Wayland wire protocols. Isolated MIT-cookie Xvfb with an independent C/Xlib peer and a separate headless Sway/wlroots compositor with wl-copy/wl-paste verify actual desktop selection ownership and byte transfers; those native tools are development-only. Copied single-JS tests exercise the published clipboard APIs and original application adapter, Unicode/primary selections, image MIME preferences and ICC-preserving bytes, INCR, read limits, queued writes, operation admission, real stalled reads, deadlines, cancellation and disposal. Direct PNG/JPEG/WebP/GIF transfers preserve original bytes and are not decoded under the renderer's image limits. The original OSC 52 copy fallback remains connected through the actual Session output feed. Wayland ext/wlr data-control is implemented; WSL core-data-device compatibility, macOS and Windows host clipboard providers remain unsupported.
+Linux host clipboard providers use direct X11 and Wayland wire protocols. Isolated MIT-cookie Xvfb with an independent C/Xlib peer and a separate headless Sway/wlroots compositor with wl-copy/wl-paste verify actual desktop selection ownership and byte transfers; those native tools are development-only. Copied single-JS tests exercise the published clipboard APIs and original application adapter, Unicode/primary selections, image MIME preferences and ICC-preserving bytes, INCR, read limits, queued writes, operation admission, real stalled reads, deadlines, cancellation and disposal. Direct PNG/JPEG/WebP/GIF transfers preserve original bytes and are not decoded under the renderer's image limits. The original OSC 52 copy fallback remains connected through the actual Session output feed. Wayland ext/wlr data-control is implemented; WSL core-data-device compatibility remains unsupported.
+
+macOS Pasteboard/ImageIO and Windows user32/kernel32 providers are implemented in embedded workers. On this Linux host, compiled C ABI fixtures exercise the actual FFI declarations, native memory ownership, Unicode, ordered MIME fallback, raw PNG, bounded TIFF/DIB conversion and copied-single-JS worker transport. An independent original Zig oracle matches complete PNG bytes or native errors for 161 DIB/BMP inputs. Worker regressions cover blocked calls, cancellation, full-u32 deadlines, queued mutation expiry, mutation commit and cleanup before process exit. **These fixtures do not establish actual macOS or Windows compatibility.** Native harnesses use a private named macOS pasteboard with the original ImageIO shim, or a private Windows window station; neither has been executed here. Clipboard conversion keeps upstream's 64 Mi-pixel/512 MiB limits, separate from the renderer's narrower limits. See [tui/clipboard/README.md](tui/clipboard/README.md) for platform-specific commands.
 
 The actual EmbeddedTerminalRenderable uses OpenTUI's original EmbeddedTerminal, compositor and Ghostty VT at commit ${terminalSources.ghostty.commit}, compiled into the same factory. Seventeen checked methods connect Unicode/ANSI rendering, selection, scrollback, resizing, cursor/focus, keyboard/mouse/paste encoding and terminal responses. Public widget tests run at 44/100 columns and in a copied single JS with no adjacent dependencies. Writes retain the original 1 MiB chunking and response-queue backpressure; generation-checked binary spans preserve parser state and reject stale resources. The vendor-reported version string ${terminalSources.ghostty.reportedVersion} is recorded separately from its actual commit.
 
@@ -199,7 +203,7 @@ Persistent-terminal tests additionally verify authenticated one-use ownership, h
 
 Unicode/native computation comparisons remain development checks: 384 width cases, 6,528 wrapping cases and eight complete Context/Scene captures at widths 44/100. Native codec/ICC comparison uses a separate development oracle; no native oracle is required at runtime.
 
-Run scoped standalone type checking and Oxlint separately. The latest canonical root bun run check completed lint with **1,250 upstream warnings and 0 errors**, then reported unresolved @opencode/stats-core imports in stats-server; turbo and the parent check terminated with SIGSEGV. These monorepo sources were not changed by the clipboard port. **The full upstream check has not passed.**
+Run scoped standalone type checking and Oxlint separately. The latest canonical root bun run check completed lint with **1,250 upstream warnings and 0 errors**, then failed with unresolved @opencode/stats-core imports and a resulting Effect type error in stats-server; exit status was 1. These monorepo sources were not changed by the clipboard port. **The full upstream check has not passed.**
 
 \`\`\`sh
 cd standalone
@@ -207,6 +211,7 @@ npm ci --ignore-scripts --workspaces=false
 npm run build
 npm run typecheck
 node tui/clipboard/wayland-fixture-prepare.mjs
+node tui/clipboard/image-native-prepare.mjs
 npm run verify
 node scripts/finalize-validation.mjs
 \`\`\`
@@ -240,7 +245,7 @@ This experimental fork pins OpenCode ${upstream.sourceVersion} at ${upstream.com
 | OpenTUI / Solid / parser | Published OpenTUI 0.6.6 classes and Solid components use the real WASM Context/Session/Scene/Yoga/editor/buffers. Actual embedded tree-sitter worker/grammars, syntax highlighting, measurements, recording, selections and output tickets are exercised. |
 | TUI images / ICC | Original PNG/JPEG/GIF/WebP, LittleCMS2, resize/composite and NativeImage/NativeImagePool/ImageRenderable. Generation-checked binary transfer preserves exact snapshots and scoped pixel leases; >64 MiB raw images and >4 MiB PNGs are tested. Upstream encoded 64 MiB/decoded 100 MiB, 25-million-pixel and 16,384-dimension limits remain intact. Factory memory grows on demand to 1 GiB; input/output windows are each bounded to 256 MiB. Extreme padding and aggregate memory can exceed these budgets and reject explicitly. |
 | Embedded terminal | Original EmbeddedTerminalRenderable and compositor backed by OpenTUI's pinned Ghostty ${terminalSources.ghostty.commit} in factory WASM. Unicode/ANSI, selection, scrollback, cursor, resize and keyboard/mouse/paste/focus/response encoding are connected. Actual /terminal shell, same-PID hide/reopen, narrow resize and exit are tested. Original direct-only Kitty limits remain; the original compositor does not draw Kitty image placements. |
-| Host clipboard | Linux X11 via Node sockets and Wayland ext/wlr data-control via built-in FFI and system libc; no libX11/libwayland runtime dependency or external clipboard commands. Real text/image reads, text writes/clear, primary, byte limits, deadlines, cancellation and disposal. Isolated Xvfb/Xlib and Sway/wl-copy/wl-paste plus copied-one-JS/public API and actual CLI Ctrl+V tests pass. Direct images retain MIME and bytes; PNG is not synthesized from JPEG or BMP. WSL core-data-device fallback, macOS/Windows host providers and compositors without data-control remain outside support. Headless/remote policy retains the original OSC 52 copy fallback. |
+| Host clipboard | Linux X11/Wayland, macOS Pasteboard/ImageIO and Windows user32/kernel32 implementations; only Node built-ins and OS system libraries at runtime. Native worker code is embedded in the one JS. Linux desktop servers, native clients and actual CLI Ctrl+V are tested; macOS/Windows use actual FFI with C ABI fixtures on Linux and still need native OS qualification. Text/PNG read, text write/clear, limits, cancellation and mutation commit are connected. Linux additionally preserves primary and JPEG/WebP/GIF bytes. macOS TIFF and Windows DIB convert to bounded PNG; DIB matches the original Zig byte for byte. macOS/Windows primary remains unsupported as upstream. WSL core-data-device and compositors without data-control remain gaps. OSC 52 copy fallback is preserved. |
 | Audio | Built-in sound bytes are embedded; native audio-device playback is unsupported. |
 | Database / shell tools | Original node:sqlite adapter and embedded migrations; upstream Node v1 migration remains a no-op. Actual tree-sitter Bash/PowerShell and Photon are embedded. User shell programs remain environmental inputs. |
 | Search | JS walk + RE2JS with local/global Git ignores and info/exclude. Rust-regex Unicode/syntax and FFF ranking differ; remote search rejects. Conditional Git includes and per-worktree/injected config remain incomplete. |

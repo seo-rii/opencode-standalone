@@ -1,12 +1,12 @@
 # Distribution size
 
-The complete verified file is **37,586,057 bytes**, 6,356,461 bytes (14.47%) smaller than the original **43,942,518 bytes** (SHA-256 09793cdadc6642dd48e343d67bbbe9a4320c407e151a5901115ea7555ba2ecb8). Compared with the earlier **35,628,036-byte headless checkpoint**, it is 1,958,021 bytes (5.50%) larger; it now includes the actual default/mini TUI, Solid, parser worker, native image/ICC resources, embedded Ghostty terminal and desktop clipboard protocols. Its current SHA-256 is e02e6a45fc273459a33ea18ed8181d6e4244cfdf86930202ad857427b070e6a5.
+The complete verified file is **37,594,587 bytes**, 6,347,931 bytes (14.45%) smaller than the original **43,942,518 bytes** (SHA-256 09793cdadc6642dd48e343d67bbbe9a4320c407e151a5901115ea7555ba2ecb8). Compared with the earlier **35,628,036-byte headless checkpoint**, it is 1,966,551 bytes (5.52%) larger; it now includes the actual default/mini TUI, Solid, parser worker, native image/ICC resources, embedded Ghostty terminal and desktop clipboard protocols. Its current SHA-256 is e8dbe47bd742ec2f6112db87464f13ffbc3fb61738967bed41a3a0f2e5aa40cb.
 
 The application is minified with keepNames enabled, Brotli-compressed and stored as comment-safe **base95**. The TUI factory has an independent compressed module inside the same JS file; it is not a second distribution file. Standard Node APIs decode the selected payload without extracting modules, WASM, addons or browser assets.
 
 | Payload | Input bytes | Stored bytes | ASCII bytes |
 | --- | ---: | ---: | ---: |
-| app | 27,846,512 | 5,553,184 | 6,782,497 |
+| app | 27,879,916 | 5,560,013 | 6,791,027 |
 | pty | 1,851 | 824 | 1,005 |
 | daemon | 329,979 | 235,342 | 287,429 |
 | licenses | 1,710,295 | 37,274 | 45,491 |

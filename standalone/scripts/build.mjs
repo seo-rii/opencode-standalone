@@ -44,7 +44,12 @@ function replace(code, before, after, file) {
 }
 
 async function hostClipboardFingerprint() {
-  const files = ["tui/clipboard.mjs", "tui/clipboard/x11.mjs", "tui/clipboard/wayland.mjs", "tui/clipboard/wayland-io.mjs"]
+  const files = [
+    "tui/clipboard.mjs", "tui/clipboard/x11.mjs", "tui/clipboard/wayland.mjs", "tui/clipboard/wayland-io.mjs",
+    "tui/clipboard/macos.mjs", "tui/clipboard/macos-worker.mjs", "tui/clipboard/windows.mjs", "tui/clipboard/windows-worker.mjs",
+    "tui/clipboard/image.mjs", "tui/clipboard/native-worker.mjs", "tui/clipboard/worker-entry.mjs",
+    "scripts/clipboard-workers.mjs", "scripts/tui-backend.mjs",
+  ]
   const hashes = await Promise.all(files.map(async (file) => [file, createHash("sha256").update(await readFile(path.join(directory, file))).digest("hex")]))
   return createHash("sha256").update(JSON.stringify(hashes)).digest("hex")
 }
@@ -243,7 +248,7 @@ const { factoryWasmBrotliBase64 } = await import("../tui/factory-wasm.mjs")
 const tuiWasmCompressed = Buffer.from(factoryWasmBrotliBase64, "base64")
 const tuiWasm = brotliDecompressSync(tuiWasmCompressed)
 const terminalSources = JSON.parse(await readFile(path.join(directory, "tui/terminal/sources.json"), "utf8"))
-const assetReport = Object.fromEntries([...assets].map(([name, { encoded, ...value }]) => [name, value]))
+const assetReport = Object.fromEntries([...assets].map(([name, { encoded: _encoded, ...value }]) => [name, value]))
 await mkdir(cache, { recursive: true })
 await writeFile(path.join(cache, "app.mjs"), app)
 await writeFile(path.join(cache, "pty.mjs"), pty)
@@ -280,7 +285,7 @@ const report = {
   tui: {
     factoryWasm: { bytes: tuiWasm.length, compressedBytes: tuiWasmCompressed.length, sha256: createHash("sha256").update(tuiWasm).digest("hex") },
     embeddedTerminal: terminalSources,
-    hostClipboard: { platform: "linux", providers: ["x11", "wayland"] },
+    hostClipboard: { platforms: { linux: ["x11", "wayland"], darwin: ["macos"], win32: ["windows"] }, nativeWorkerEmbedded: true },
   },
   pluginModules: pluginRuntime.specifiers,
   external: "Node.js built-in modules only",

@@ -9,13 +9,13 @@ export function adaptPublishedClipboardSource(filename, source) {
   return 'import { createStandaloneHostClipboardBackend } from "opencode:tui-clipboard";\n' + source.replace(before, "var createNativeHostClipboardBackend = (options) => createStandaloneHostClipboardBackend(options);")
 }
 
-/** X11/Wayland own the actual desktop selections; headless callers retain OSC 52. */
+/** Each desktop uses its system clipboard; headless callers retain OSC 52. */
 export function createStandaloneHostClipboardBackend(options = {}) {
-  const mechanisms = process.platform !== "linux" ? [] : [
+  const mechanisms = process.platform === "darwin" ? ["macos"] : process.platform === "win32" ? ["windows"] : process.platform !== "linux" ? [] : [
     ...(process.env.WAYLAND_DISPLAY || process.env.WAYLAND_SOCKET ? ["wayland"] : []),
     ...(process.env.DISPLAY ? ["x11"] : []),
   ]
-  const wsl = process.env.WSL_DISTRO_NAME !== undefined || process.env.WSL_INTEROP !== undefined || /microsoft|wsl/i.test(release())
+  const wsl = process.platform === "linux" && (process.env.WSL_DISTRO_NAME !== undefined || process.env.WSL_INTEROP !== undefined || /microsoft|wsl/i.test(release()))
   const providers = new Map()
   const active = new Set()
   const mutations = new Map()
@@ -89,7 +89,7 @@ export function createStandaloneHostClipboardBackend(options = {}) {
     if (kind !== "read") mutations.set(operation.selection, task.then(() => undefined))
     try {
       const result = await task
-      return timedOut ? { status: "timed-out" } : result
+      return timedOut && !operation.mutationCommitted ? { status: "timed-out" } : result
     } finally {
       stopTimer()
       request.signal?.removeEventListener("abort", callerAbort)
@@ -122,6 +122,14 @@ export function createStandaloneHostClipboardBackend(options = {}) {
 const nativeReadTypes = new Set(["text/plain", "image/png", "image/jpeg", "image/webp", "image/gif"])
 
 async function openProvider(mechanism, options) {
+  if (mechanism === "macos") {
+    const { createMacOSClipboard } = await import("./clipboard/macos.mjs")
+    return createMacOSClipboard(options)
+  }
+  if (mechanism === "windows") {
+    const { createWindowsClipboard } = await import("./clipboard/windows.mjs")
+    return createWindowsClipboard(options)
+  }
   if (mechanism === "wayland") {
     const { createWaylandClipboard } = await import("./clipboard/wayland.mjs")
     return createWaylandClipboard(options)

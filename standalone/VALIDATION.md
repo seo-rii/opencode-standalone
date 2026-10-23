@@ -2,13 +2,13 @@
 
 Validated on Linux x64 with Node.js **26.4.0** against OpenCode **f7577a1f65b465b35b0dcb30b23f22c14e3b5460** (2.1.2). Full upstream parity remains **false**.
 
-The exact dist/opencode-standalone.js is **37,586,057 bytes**, 6,356,461 bytes (14.47%) smaller than the original 43,942,518-byte distribution. SHA-256:
+The exact dist/opencode-standalone.js is **37,594,587 bytes**, 6,347,931 bytes (14.45%) smaller than the original 43,942,518-byte distribution. SHA-256:
 
 ```text
-e02e6a45fc273459a33ea18ed8181d6e4244cfdf86930202ad857427b070e6a5
+e8dbe47bd742ec2f6112db87464f13ffbc3fb61738967bed41a3a0f2e5aa40cb
 ```
 
-The matching verification receipt records **138/138 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T07:48:18.410Z through 2026-10-23T07:50:09.126Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,055 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,080,041 bytes before Brotli, 878,792 bytes compressed, SHA-256 f8aac20c814b4afca5fcddbd6c984f93c07df006c96b3c1dbb222f0810d0b7ad.
+The matching verification receipt records **156/156 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T08:41:20.268Z through 2026-10-23T08:46:42.423Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,060 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,080,041 bytes before Brotli, 878,792 bytes compressed, SHA-256 f8aac20c814b4afca5fcddbd6c984f93c07df006c96b3c1dbb222f0810d0b7ad.
 
 Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons and no adjacent packages. They exercise:
 
@@ -22,7 +22,9 @@ Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons
 
 Published OpenTUI classes run through real Context/Session/Scene/Yoga WASM: styled Unicode, editor history/selections/callbacks, scoped writable cell/pixel leases, native output tickets, custom paint recordings and Yoga measurements. Actual Solid components stream Markdown/code, scroll and resize, switch routes and edit the new focused input at 44/100 columns; the real parser worker is joined during cleanup. Kernel-input tests use a real PTY queue and tcflush, preserving later input.
 
-Host clipboard providers use direct X11 and Wayland wire protocols. Isolated MIT-cookie Xvfb with an independent C/Xlib peer and a separate headless Sway/wlroots compositor with wl-copy/wl-paste verify actual desktop selection ownership and byte transfers; those native tools are development-only. Copied single-JS tests exercise the published clipboard APIs and original application adapter, Unicode/primary selections, image MIME preferences and ICC-preserving bytes, INCR, read limits, queued writes, operation admission, real stalled reads, deadlines, cancellation and disposal. Direct PNG/JPEG/WebP/GIF transfers preserve original bytes and are not decoded under the renderer's image limits. The original OSC 52 copy fallback remains connected through the actual Session output feed. Wayland ext/wlr data-control is implemented; WSL core-data-device compatibility, macOS and Windows host clipboard providers remain unsupported.
+Linux host clipboard providers use direct X11 and Wayland wire protocols. Isolated MIT-cookie Xvfb with an independent C/Xlib peer and a separate headless Sway/wlroots compositor with wl-copy/wl-paste verify actual desktop selection ownership and byte transfers; those native tools are development-only. Copied single-JS tests exercise the published clipboard APIs and original application adapter, Unicode/primary selections, image MIME preferences and ICC-preserving bytes, INCR, read limits, queued writes, operation admission, real stalled reads, deadlines, cancellation and disposal. Direct PNG/JPEG/WebP/GIF transfers preserve original bytes and are not decoded under the renderer's image limits. The original OSC 52 copy fallback remains connected through the actual Session output feed. Wayland ext/wlr data-control is implemented; WSL core-data-device compatibility remains unsupported.
+
+macOS Pasteboard/ImageIO and Windows user32/kernel32 providers are implemented in embedded workers. On this Linux host, compiled C ABI fixtures exercise the actual FFI declarations, native memory ownership, Unicode, ordered MIME fallback, raw PNG, bounded TIFF/DIB conversion and copied-single-JS worker transport. An independent original Zig oracle matches complete PNG bytes or native errors for 161 DIB/BMP inputs. Worker regressions cover blocked calls, cancellation, full-u32 deadlines, queued mutation expiry, mutation commit and cleanup before process exit. **These fixtures do not establish actual macOS or Windows compatibility.** Native harnesses use a private named macOS pasteboard with the original ImageIO shim, or a private Windows window station; neither has been executed here. Clipboard conversion keeps upstream's 64 Mi-pixel/512 MiB limits, separate from the renderer's narrower limits. See [tui/clipboard/README.md](tui/clipboard/README.md) for platform-specific commands.
 
 The actual EmbeddedTerminalRenderable uses OpenTUI's original EmbeddedTerminal, compositor and Ghostty VT at commit 727b8a02f8734840de664c060678dd66f01931f6, compiled into the same factory. Seventeen checked methods connect Unicode/ANSI rendering, selection, scrollback, resizing, cursor/focus, keyboard/mouse/paste encoding and terminal responses. Public widget tests run at 44/100 columns and in a copied single JS with no adjacent dependencies. Writes retain the original 1 MiB chunking and response-queue backpressure; generation-checked binary spans preserve parser state and reject stale resources. The vendor-reported version string 0.1.0-dev+b988efcf is recorded separately from its actual commit.
 
@@ -32,7 +34,7 @@ Persistent-terminal tests additionally verify authenticated one-use ownership, h
 
 Unicode/native computation comparisons remain development checks: 384 width cases, 6,528 wrapping cases and eight complete Context/Scene captures at widths 44/100. Native codec/ICC comparison uses a separate development oracle; no native oracle is required at runtime.
 
-Run scoped standalone type checking and Oxlint separately. The latest canonical root bun run check completed lint with **1,250 upstream warnings and 0 errors**, then reported unresolved @opencode/stats-core imports in stats-server; turbo and the parent check terminated with SIGSEGV. These monorepo sources were not changed by the clipboard port. **The full upstream check has not passed.**
+Run scoped standalone type checking and Oxlint separately. The latest canonical root bun run check completed lint with **1,250 upstream warnings and 0 errors**, then failed with unresolved @opencode/stats-core imports and a resulting Effect type error in stats-server; exit status was 1. These monorepo sources were not changed by the clipboard port. **The full upstream check has not passed.**
 
 ```sh
 cd standalone
@@ -40,6 +42,7 @@ npm ci --ignore-scripts --workspaces=false
 npm run build
 npm run typecheck
 node tui/clipboard/wayland-fixture-prepare.mjs
+node tui/clipboard/image-native-prepare.mjs
 npm run verify
 node scripts/finalize-validation.mjs
 ```
