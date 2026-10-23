@@ -13,15 +13,18 @@ import { pluginModules } from "./plugin-modules.mjs"
 import { tuiRuntime } from "./tui-runtime.mjs"
 import { standaloneTui } from "./tui-backend.mjs"
 import { archiveMagic } from "../web/runtime.mjs"
+import { parseBuildProfile, distributionDirectory } from "./profiles.mjs"
 
+const { profile, args } = parseBuildProfile(process.argv.slice(2))
 await import("./prepare.mjs")
 const root = fileURLToPath(new URL("../../", import.meta.url))
 const directory = path.join(root, "standalone")
 // Keep the last verified artifact available while validating the full TUI.
-const tuiPreview = process.argv.includes("--tui-preview")
-const fromTuiPreview = process.argv.includes("--from-tui-preview")
-const repack = process.argv.includes("--repack")
+const tuiPreview = args.includes("--tui-preview")
+const fromTuiPreview = args.includes("--from-tui-preview")
+const repack = args.includes("--repack")
 const payloadEncoding = "utf8-ans"
+const omittedFeatures = profile === "lite" ? ["browser-ui"] : []
 if (fromTuiPreview && !repack) throw new Error("--from-tui-preview requires --repack to explicitly select the compiled preview cache")
 const tuiModule = "opencode-standalone:tui"
 const require = createRequire(import.meta.url)
@@ -273,9 +276,12 @@ await writeFile(path.join(cache, "app.mjs"), app)
 await writeFile(path.join(cache, "pty.mjs"), pty)
 await writeFile(path.join(cache, "daemon.mjs"), daemon)
 await writeFile(path.join(cache, "graph.json"), JSON.stringify({ modules: [...modules], assets: assetReport, tuiPayload: true, hostClipboardSourceSha256, webAssetSourceSha256 }))
-const web = await readFile(path.join(directory, ".cache/web/app.archive")).catch((error) => {
-  if (error.code !== "ENOENT") throw error
-})
+const web = profile === "full" ? await readFile(path.join(directory, ".cache/web/app.archive")).catch((error) => {
+  if (error.code === "ENOENT") throw new Error("Full builds require browser assets; run npm run build:web first, or choose npm run build:lite")
+  throw error
+}) : undefined
+// The original web handler serves 404 from an empty asset map while routing
+// /api, /auth and /openapi.json normally. Lite never loads a browser cache.
 const emptyWebIndex = Buffer.from('{"groups":[],"files":{}}')
 const emptyWebHeader = Buffer.alloc(12)
 emptyWebHeader.write(archiveMagic, 0, "ascii")
@@ -284,7 +290,7 @@ const webLicenses = web ? await readFile(path.join(directory, ".cache/web/licens
 const tuiLicenses = (await Promise.all(["LICENSES.txt", "yoga-LICENSE.txt", "renderer-runtime-LICENSES.txt", "parser/LICENSES.txt", "image/LICENSES.txt", "terminal/LICENSES.txt"].map((file) => readFile(path.join(directory, "tui", file), "utf8")))).join("\n")
 const licenses = await notices(root, modules, assets.keys()) + "\n" + webLicenses + "\n" + tuiLicenses
 const packed = packArtifact({
-  name: "opencode-standalone", upstream, experimental: true, runtime: "Node.js >=26.4", payloadEncoding,
+  name: "opencode-standalone", upstream, profile, omittedFeatures, experimental: true, runtime: "Node.js >=26.4", payloadEncoding,
   embeddedWasm: true, browserAssets: !!web, interactiveTui: true, miniTui: true, embeddedTerminal: true, hostClipboard: true, fullParity: false,
 }, {
   // A 16 MiB window can share parser resources across this 28 MB module.
@@ -292,12 +298,14 @@ const packed = packArtifact({
   tui: { bytes: tuiCode, quality: 11 },
   web: { bytes: web ?? Buffer.concat([emptyWebHeader, emptyWebIndex]), quality: 6 },
 }, { encoding: payloadEncoding })
-const destination = path.join(directory, tuiPreview ? ".cache/tui-integration" : "dist")
+const destination = tuiPreview ? path.join(directory, ".cache/tui-integration", profile === "lite" ? "lite" : "") : distributionDirectory(directory, profile)
 await mkdir(destination, { recursive: true })
 const output = path.join(destination, "opencode-standalone.js")
 await writeFile(output, packed.bytes, { mode: 0o755 })
 const report = {
   upstream,
+  profile,
+  omittedFeatures,
   artifact: path.basename(output),
   bytes: packed.bytes.length,
   sha256: createHash("sha256").update(packed.bytes).digest("hex"),

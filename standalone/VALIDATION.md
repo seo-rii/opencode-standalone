@@ -8,7 +8,7 @@ The exact dist/opencode-standalone.js is **29,079,504 bytes**, 14,863,014 bytes 
 8d963c69449a2504030379ea376f86211188b701b13cf12955d73f34c395efe0
 ```
 
-The matching verification receipt records **179/179 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T11:28:13.592Z through 2026-10-23T11:30:55.178Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,060 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,079,241 bytes before Brotli, 879,135 bytes compressed, SHA-256 513324093b300fcd8ac5a988dfda23d60a3b58f2208ad2533bc58bfd00926552.
+The matching verification receipt records **182/182 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T12:05:14.209Z through 2026-10-23T12:07:27.982Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,060 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,079,241 bytes before Brotli, 879,135 bytes compressed, SHA-256 513324093b300fcd8ac5a988dfda23d60a3b58f2208ad2533bc58bfd00926552.
 
 Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons and no adjacent packages. They exercise:
 

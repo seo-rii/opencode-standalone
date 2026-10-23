@@ -10,11 +10,14 @@
   "scripts": {
     "prepare:workspace": "node scripts/prepare.mjs",
     "build": "node scripts/build-all.mjs",
+    "build:lite": "node scripts/build-all.mjs --profile lite",
     "build:cli": "node --max-old-space-size=4096 scripts/build.mjs",
     "build:web": "node --max-old-space-size=4096 web/build.mjs",
     "test": "node scripts/test.mjs",
+    "test:lite": "node scripts/test.mjs --profile lite",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "verify:lite": "node scripts/verify.mjs --profile lite"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "1.6.0",

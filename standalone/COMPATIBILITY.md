@@ -2,6 +2,8 @@
 
 This experimental fork pins OpenCode 2.1.2 at f7577a1f65b465b35b0dcb30b23f22c14e3b5460. **Full upstream parity is not achieved.** The validated runtime is Linux x64, Node.js 26.4.0; module compilation alone is not evidence of feature or platform parity.
 
+The table describes the full profile. [LITE.md](LITE.md) describes the optional CLI/TUI profile, which retains the same application and terminal modules while omitting browser UI assets.
+
 | Area | Implementation and current limits |
 | --- | --- |
 | Distribution | One JS file containing compressed JS/WASM/assets, utf8-ans storage and preserved function names. Built-in graph imports only Node built-ins; no extracted addon/WASM files or runtime npm installation. |

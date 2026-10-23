@@ -21,7 +21,13 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 
 빌드에는 개발 의존성과 컴파일 도구가 필요합니다. 배포할 때는 dist/opencode-standalone.js 하나만 복사합니다. 모델 인증·설정은 원본 방식을 따르며, 실험적 Node 내장 FFI가 필요하면 런처가 같은 Node를 --experimental-ffi로 다시 실행합니다. --standalone-licenses로 포함된 고지를 확인할 수 있습니다.
 
-현재 검증 파일은 **29,079,504바이트 (29.08 MB)**이며, 최초 43,942,518바이트 대비 **33.82% 감소**했습니다. 정확히 이 파일이 **179/179개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
+현재 검증 파일은 **29,079,504바이트 (29.08 MB)**이며, 최초 43,942,518바이트 대비 **33.82% 감소**했습니다. 정확히 이 파일이 **182/182개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
+
+## 라이트 버전
+
+CLI·기본/mini TUI·에이전트·API·터미널·클립보드를 사용하는 경우 `npm run build:lite`로 브라우저 UI 에셋을 제외할 수 있습니다. 결과는 `dist/lite/opencode-standalone.js`에 따로 생성되고, `npm run verify:lite`로 검증합니다. 기본 `npm run build`는 웹 UI를 포함한 전체 버전입니다.
+
+라이트의 HTTP API는 유지되며, 브라우저 화면·서비스 워커·웹 Office 미리보기와 폰트는 제외되어 UI 요청에 404를 반환합니다. 포함 범위·크기·실행 명령은 [라이트 문서](standalone/LITE.md)에 있습니다.
 
 ## 구현
 

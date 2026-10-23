@@ -13,7 +13,7 @@ const baseline = { bytes: 43_942_518, sha256: "09793cdadc6642dd48e343d67bbbe9a43
 const headlessBytes = 35_628_036
 const publishedBytes = 37_595_298
 const previousBytes = 29_570_945
-const requiredTests = ["test/tui-cli.test.ts", "test/browser-pty.test.mjs", "test/encoding-memory.test.mjs", "test/minify.test.mjs", "test/pack.test.mjs", "test/utf8-encoding.test.mjs", "test/utf8-ans.test.mjs", "web/archive.test.mjs", "web/runtime.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
+const requiredTests = ["test/tui-cli.test.ts", "test/browser-pty.test.mjs", "test/profiles.test.mjs", "test/encoding-memory.test.mjs", "test/minify.test.mjs", "test/pack.test.mjs", "test/utf8-encoding.test.mjs", "test/utf8-ans.test.mjs", "web/archive.test.mjs", "web/runtime.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
 
 /** Publish documentation only after the exact complete artifact has a green receipt. */
 export async function finalizeValidation() {
@@ -24,6 +24,8 @@ export async function finalizeValidation() {
   assert.match(upstream.commit, /^[a-f0-9]{40}$/, "UPSTREAM.json must pin a complete source commit")
   for (const field of ["repository", "sourceVersion", "distributionVersion"]) assert.ok(typeof upstream[field] === "string" && upstream[field].length > 0, `UPSTREAM.json is missing ${field}`)
   assert.equal(report.upstream, upstream.commit, "Build source does not match UPSTREAM.json")
+  assert.equal(report.profile ?? "full", "full", "Full documentation requires the full build")
+  assert.equal(verification.profile ?? "full", "full", "Full documentation requires full-profile verification")
   assert.equal(report.artifact, basename(artifact), "Build receipt names a different artifact")
   assert.equal(verification.artifact, basename(artifact), "Verification names a different artifact")
   const sha256 = hash(bytes)
@@ -147,6 +149,12 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 
 현재 검증 파일은 **${n(bytes.length)}바이트 (${(bytes.length / 1_000_000).toFixed(2)} MB)**이며, 최초 ${n(baseline.bytes)}바이트 대비 **${koreanSize}**했습니다. 정확히 이 파일이 **${n(counts.pass)}/${n(counts.tests)}개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
 
+## 라이트 버전
+
+CLI·기본/mini TUI·에이전트·API·터미널·클립보드를 사용하는 경우 \`npm run build:lite\`로 브라우저 UI 에셋을 제외할 수 있습니다. 결과는 \`dist/lite/opencode-standalone.js\`에 따로 생성되고, \`npm run verify:lite\`로 검증합니다. 기본 \`npm run build\`는 웹 UI를 포함한 전체 버전입니다.
+
+라이트의 HTTP API는 유지되며, 브라우저 화면·서비스 워커·웹 Office 미리보기와 폰트는 제외되어 UI 요청에 404를 반환합니다. 포함 범위·크기·실행 명령은 [라이트 문서](standalone/LITE.md)에 있습니다.
+
 ## 구현
 
 | 원본 의존성 | 이 포크의 구현 |
@@ -239,6 +247,8 @@ The final command checks all hashes, sizes, successful counts, required test fil
 
 The complete verified file is **${n(bytes.length)} bytes**, ${compared(baseline.bytes)} than the original **${n(baseline.bytes)} bytes** (SHA-256 ${baseline.sha256}), ${compared(publishedBytes)} than the first public **${n(publishedBytes)}-byte** distribution, and ${compared(previousBytes)} than the previous **${n(previousBytes)}-byte** release. Compared with the earlier **${n(headlessBytes)}-byte headless checkpoint**, it is ${compared(headlessBytes)}; it includes the actual default/mini TUI, Solid, parser worker, native image/ICC resources, embedded Ghostty terminal and desktop clipboard protocols. Its current SHA-256 is ${sha256}.
 
+This is the full profile. A separate \`npm run build:lite\` profile omits browser UI resources while retaining the same application, PTY, daemon and TUI payloads; see [LITE.md](LITE.md) for its independently verified size, retained features and commands.
+
 The application is minified with esbuild keepNames followed by Terser ${report.minification.application.version}, preserving function/class names and function argument counts. It is Brotli-compressed with a 16 MiB window and stored as comment-safe **${report.payloads.app.encoding}**. The additional minification reduced the measured compressed application from 5,401,886 to 5,284,357 bytes. This build-only pass took about 6.5 minutes on the measured host; exact source, options and tool-version matches reuse a hash-checked cache. The TUI factory has an independent compressed module inside the same JS file; it is not a second distribution file. Standard Node APIs decode the selected payload without extracting modules, WASM, addons or browser assets.
 
 The payload encoding uses a fixed-integer rANS model over a pinned safe Unicode alphabet, approaching the alphabet's capacity of 6.85 bits per UTF-8 byte. It contains no NUL, ASCII controls, bidi/format controls, surrogates, Unicode noncharacters or comment-closing delimiters. The complete file remains valid UTF-8 JavaScript. Compared on the previous payloads, it saves 356,317 bytes over four-byte codewords. Five interleaved measurements of the final validated decoder added about 140 ms of application decoding CPU and 322 ms when the web payload is first decoded. Parser-only checks changed CPU by about 3 ms and reduced median peak RSS by about 3.7 MiB. Its Unicode source can use roughly 20–30 MiB more parsing memory than ASCII-only source. The legacy base95 and four-byte UTF-8 packing APIs remain available for comparison.
@@ -260,6 +270,8 @@ From standalone/, scripts/size-benchmark.mjs compares application compression/en
     [join(directory, "COMPATIBILITY.md"), `# Compatibility
 
 This experimental fork pins OpenCode ${upstream.sourceVersion} at ${upstream.commit}. **Full upstream parity is not achieved.** The validated runtime is Linux x64, Node.js ${node}; module compilation alone is not evidence of feature or platform parity.
+
+The table describes the full profile. [LITE.md](LITE.md) describes the optional CLI/TUI profile, which retains the same application and terminal modules while omitting browser UI assets.
 
 | Area | Implementation and current limits |
 | --- | --- |
