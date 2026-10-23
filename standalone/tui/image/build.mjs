@@ -72,6 +72,7 @@ if (version.status !== 0 || version.stdout.trim() !== manifest.zig.version) thro
 const built = spawnSync(zig, ["build", "-Dimages=true", "images", "-j2", "--prefix", join(cache, "image-build"), "--cache-dir", join(cache, "image-zig-build"), "--global-cache-dir", join(cache, "zig-global")], { cwd: tui, stdio: "inherit" })
 if (built.status !== 0) throw new Error(`Image reactor build failed (${built.status ?? built.signal})`)
 const wasm = await readFile(join(cache, "image-build/bin/opentui-images.wasm"))
+if (wasm.includes(Buffer.from(tui))) throw new Error("Image reactor retained its private build root; check C/C++ source-prefix mapping")
 const module = new WebAssembly.Module(wasm)
 if (WebAssembly.Module.imports(module).some((entry) => entry.module !== "wasi_snapshot_preview1")) throw new Error("Image reactor unexpectedly requires a codec or native host import")
 for (const name of ["memory", "_initialize", "imageInputPointer", "imageInputCapacity", "imageOutputPointer", "imageOutputLength", "imageCall"]) {

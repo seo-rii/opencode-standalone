@@ -12,7 +12,7 @@ pub fn add(b: *std.Build) void {
     wasm.root_module.export_symbol_names = &.{ "imageInputPointer", "imageInputCapacity", "imageOutputPointer", "imageOutputLength", "imageCall" };
     step.dependOn(&b.addInstallArtifact(wasm, .{}).step);
     const native_module = module(b, b.graph.host, b.path("image/native.zig"));
-    native_module.addCSourceFile(.{ .file = b.path("image/native.c"), .flags = &.{"-std=c17"} });
+    native_module.addCSourceFile(.{ .file = b.path("image/native.c"), .flags = @import("../renderer-build.zig").sourceFlags(b, &.{"-std=c17"}) });
     const native = b.addExecutable(.{ .name = "opentui-images-reference", .root_module = native_module });
     step.dependOn(&b.addInstallArtifact(native, .{}).step);
 }
@@ -34,7 +34,7 @@ pub fn codecs(b: *std.Build, upstream: *std.Build.Module, target: std.Build.Reso
     // LittleCMS defaults its suballocator to sizeof(void*), but wasm32 f64
     // fields still require eight-byte alignment. Keep the real library's own
     // supported allocator alignment setting instead of disabling the trap.
-    const flags: []const []const u8 = &.{ "-std=c99", "-ffp-contract=off", "-fvisibility=hidden", "-DCMS_PTR_ALIGNMENT=8" };
+    const flags = @import("../renderer-build.zig").sourceFlags(b, &.{ "-std=c99", "-ffp-contract=off", "-fvisibility=hidden", "-DCMS_PTR_ALIGNMENT=8" });
     upstream.addCSourceFile(.{ .file = b.path(b.pathJoin(&.{ source, "src/image-shim.c" })), .flags = flags });
     upstream.addIncludePath(b.path(b.pathJoin(&.{ source, "src/vendor/lcms2/include" })));
     upstream.addIncludePath(b.path(b.pathJoin(&.{ source, "src/vendor/lcms2/src" })));
@@ -43,9 +43,9 @@ pub fn codecs(b: *std.Build, upstream: *std.Build.Module, target: std.Build.Reso
     }, .flags = flags });
     // Preserve the existing upstream exception for the resize unit's bounded
     // pre-table pointer idiom; all other C units retain their normal checks.
-    upstream.addCSourceFile(.{ .file = b.path(b.pathJoin(&.{ source, "src/image-resize-shim.c" })), .flags = &.{ "-std=c99", "-ffp-contract=off", "-fvisibility=hidden", "-fno-sanitize=bounds" } });
-    const webp_flags: []const []const u8 = &.{ "-std=c99", "-fvisibility=hidden", "-DWEBP_EXTERN=extern" };
-    const dispatch_flags: []const []const u8 = if (target.result.cpu.arch == .x86_64) &.{ "-std=c99", "-fvisibility=hidden", "-DWEBP_EXTERN=extern", "-DWEBP_HAVE_SSE2", "-DWEBP_HAVE_SSE41", "-DWEBP_HAVE_AVX2" } else webp_flags;
+    upstream.addCSourceFile(.{ .file = b.path(b.pathJoin(&.{ source, "src/image-resize-shim.c" })), .flags = @import("../renderer-build.zig").sourceFlags(b, &.{ "-std=c99", "-ffp-contract=off", "-fvisibility=hidden", "-fno-sanitize=bounds" }) });
+    const webp_flags = @import("../renderer-build.zig").sourceFlags(b, &.{ "-std=c99", "-fvisibility=hidden", "-DWEBP_EXTERN=extern" });
+    const dispatch_flags = if (target.result.cpu.arch == .x86_64) @import("../renderer-build.zig").sourceFlags(b, &.{ "-std=c99", "-fvisibility=hidden", "-DWEBP_EXTERN=extern", "-DWEBP_HAVE_SSE2", "-DWEBP_HAVE_SSE41", "-DWEBP_HAVE_AVX2" }) else webp_flags;
     const webp = b.path(b.pathJoin(&.{ source, "src/vendor/libwebp" }));
     upstream.addIncludePath(webp);
     upstream.addCSourceFile(.{ .file = b.path(b.pathJoin(&.{ source, "src/image-webp-config.c" })), .flags = dispatch_flags });

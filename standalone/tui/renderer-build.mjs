@@ -85,6 +85,7 @@ const version = spawnSync(zig, ["version"], { encoding: "utf8" })
 if (version.status !== 0 || version.stdout.trim() !== manifest.zig.version) throw new Error(`Expected Zig ${manifest.zig.version}`)
 run(zig, ["build", "-Drenderer=true", "renderer", "-j2", "--prefix", join(cache, "renderer-build"), "--cache-dir", join(cache, "renderer-zig-build"), "--global-cache-dir", join(cache, "zig-global")])
 const wasm = await readFile(join(cache, "renderer-build/bin/opentui-renderer.wasm"))
+if (wasm.includes(Buffer.from(directory))) throw new Error("Renderer reactor retained its private build root; check C/C++ source-prefix mapping")
 const module = new WebAssembly.Module(wasm)
 const exports = WebAssembly.Module.exports(module).map((entry) => entry.name)
 for (const name of ["memory", "_initialize", "rendererInputPointer", "rendererInputCapacity", "rendererOutputPointer", "rendererOutputLength", "rendererCall"]) {

@@ -2,13 +2,13 @@
 
 Validated on Linux x64 with Node.js **26.4.0** against OpenCode **f7577a1f65b465b35b0dcb30b23f22c14e3b5460** (2.1.2). Full upstream parity remains **false**.
 
-The exact dist/opencode-standalone.js is **37,594,587 bytes**, 6,347,931 bytes (14.45%) smaller than the original 43,942,518-byte distribution. SHA-256:
+The exact dist/opencode-standalone.js is **37,595,298 bytes**, 6,347,220 bytes (14.44%) smaller than the original 43,942,518-byte distribution. SHA-256:
 
 ```text
-e8dbe47bd742ec2f6112db87464f13ffbc3fb61738967bed41a3a0f2e5aa40cb
+235247505b90a72fa5ac31f8f9c1d660888343b40940c389e29a66ac9684c9a5
 ```
 
-The matching verification receipt records **156/156 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T08:41:20.268Z through 2026-10-23T08:46:42.423Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,060 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,080,041 bytes before Brotli, 878,792 bytes compressed, SHA-256 f8aac20c814b4afca5fcddbd6c984f93c07df006c96b3c1dbb222f0810d0b7ad.
+The matching verification receipt records **156/156 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T09:16:57.316Z through 2026-10-23T09:19:56.048Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,060 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,079,241 bytes before Brotli, 879,135 bytes compressed, SHA-256 513324093b300fcd8ac5a988dfda23d60a3b58f2208ad2533bc58bfd00926552.
 
 Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons and no adjacent packages. They exercise:
 

@@ -21,7 +21,7 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 
 빌드에는 개발 의존성과 컴파일 도구가 필요합니다. 배포할 때는 dist/opencode-standalone.js 하나만 복사합니다. 모델 인증·설정은 원본 방식을 따르며, 실험적 Node 내장 FFI가 필요하면 런처가 같은 Node를 --experimental-ffi로 다시 실행합니다. --standalone-licenses로 포함된 고지를 확인할 수 있습니다.
 
-현재 검증 파일은 **37,594,587바이트 (37.59 MB)**이며, 최초 43,942,518바이트 대비 **14.45% 감소**했습니다. 정확히 이 파일이 **156/156개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
+현재 검증 파일은 **37,595,298바이트 (37.60 MB)**이며, 최초 43,942,518바이트 대비 **14.44% 감소**했습니다. 정확히 이 파일이 **156/156개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
 
 ## 구현
 
@@ -58,4 +58,4 @@ npm run verify
 
 OS 클립보드 개발 검증에는 Xvfb·C 컴파일러·Xlib 개발 헤더가 필요하며, Wayland fixture는 `node tui/clipboard/wayland-fixture-prepare.mjs`로 .cache에 준비합니다. 이 도구들은 배포 파일의 런타임 의존성이 아닙니다. 자세한 절차는 [클립보드 문서](standalone/tui/clipboard/README.md)에 있습니다.
 
-정확한 결과는 dist/build-report.json과 dist/verification.json에 있습니다. 전체 업스트림 검사인 루트 bun run check는 아직 통과하지 못했습니다. 사용자 플러그인·MCP 서버·언어 서버·포매터·셸 도구의 추가 실행 파일까지 자동으로 포함하지는 않습니다. 남은 작업은 [RISK_REGISTER.md](RISK_REGISTER.md)에 추적합니다.
+정확한 결과는 dist/build-report.json과 dist/verification.json에 있습니다. 전체 업스트림 검사인 루트 bun run check는 아직 통과하지 못했습니다. 사용자 플러그인·MCP 서버·언어 서버·포매터·셸 도구의 추가 실행 파일까지 자동으로 포함하지는 않습니다. 남은 플랫폼·기능 제한은 [호환성 표](standalone/COMPATIBILITY.md)에 기록합니다.

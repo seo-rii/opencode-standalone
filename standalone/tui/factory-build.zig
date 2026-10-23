@@ -18,7 +18,7 @@ pub fn add(b: *std.Build) void {
     if (b.option(bool, "terminal-oracle", "Build the native terminal parity oracle") orelse false) {
         const native_step = b.step("terminal-oracle", "Build the native terminal parity oracle");
         const native_module = factoryModule(b, b.graph.host, b.path("factory-native.zig")) orelse return;
-        native_module.addCSourceFile(.{ .file = b.path("terminal/native.c"), .flags = &.{"-std=c17"} });
+        native_module.addCSourceFile(.{ .file = b.path("terminal/native.c"), .flags = @import("renderer-build.zig").sourceFlags(b, &.{"-std=c17"}) });
         const native = b.addExecutable(.{ .name = "opentui-terminal-reference", .root_module = native_module });
         const install_native = b.addInstallArtifact(native, .{});
         native_step.dependOn(&install_native.step);

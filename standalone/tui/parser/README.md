@@ -43,14 +43,14 @@ remain byte-identical to the pinned installed package.
 Run from `standalone/` using the installed Node 26.4 runtime:
 
 ```sh
-../.tools/node/bin/node scripts/run-logged.mjs parser-tests \
-  ../.tools/node/bin/node --test tui/parser/parser.test.mjs
+node scripts/run-logged.mjs parser-tests \
+  node --test tui/parser/parser.test.mjs
 
-../.tools/node/bin/node tui/parser/build.mjs /tmp/parser-proof.mjs
-../.tools/node/bin/node --no-addons /tmp/parser-proof.mjs /tmp/parser-data
+node tui/parser/build.mjs /tmp/parser-proof.mjs
+node --no-addons /tmp/parser-proof.mjs /tmp/parser-data
 
-../.tools/node/bin/node tui/parser/client-build.mjs /tmp/parser-client-proof.mjs
-../.tools/node/bin/node --no-addons /tmp/parser-client-proof.mjs /tmp/parser-client-data
+node tui/parser/client-build.mjs /tmp/parser-client-proof.mjs
+node --no-addons /tmp/parser-client-proof.mjs /tmp/parser-client-data
 ```
 
 The tests copy one JS file into a fresh directory and execute it with empty

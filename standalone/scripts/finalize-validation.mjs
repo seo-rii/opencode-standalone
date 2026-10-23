@@ -165,7 +165,7 @@ npm run verify
 
 OS 클립보드 개발 검증에는 Xvfb·C 컴파일러·Xlib 개발 헤더가 필요하며, Wayland fixture는 \`node tui/clipboard/wayland-fixture-prepare.mjs\`로 .cache에 준비합니다. 이 도구들은 배포 파일의 런타임 의존성이 아닙니다. 자세한 절차는 [클립보드 문서](standalone/tui/clipboard/README.md)에 있습니다.
 
-정확한 결과는 dist/build-report.json과 dist/verification.json에 있습니다. 전체 업스트림 검사인 루트 bun run check는 아직 통과하지 못했습니다. 사용자 플러그인·MCP 서버·언어 서버·포매터·셸 도구의 추가 실행 파일까지 자동으로 포함하지는 않습니다. 남은 작업은 [RISK_REGISTER.md](RISK_REGISTER.md)에 추적합니다.
+정확한 결과는 dist/build-report.json과 dist/verification.json에 있습니다. 전체 업스트림 검사인 루트 bun run check는 아직 통과하지 못했습니다. 사용자 플러그인·MCP 서버·언어 서버·포매터·셸 도구의 추가 실행 파일까지 자동으로 포함하지는 않습니다. 남은 플랫폼·기능 제한은 [호환성 표](standalone/COMPATIBILITY.md)에 기록합니다.
 `],
     [join(directory, "VALIDATION.md"), `# Validation record
 
@@ -257,7 +257,7 @@ This experimental fork pins OpenCode ${upstream.sourceVersion} at ${upstream.com
 | Plugins / extensions | Public Effect/plugin modules share bundled namespaces; isolated Promise/Effect activation is tested. Opt-in side effects and untested extension/provider combinations remain gaps. User plugins, MCP/LSP servers, formatters and tools can require external packages/executables. |
 | Updates | Automatic install/update and uninstall are explicitly unavailable. Replace the artifact with a newly verified build. |
 
---standalone-info reports interactiveTui, miniTui, embeddedTerminal and hostClipboard true, **fullParity false**. dist/build-report.json and dist/verification.json identify the exact file; neither is a runtime dependency. Node's FFI still uses OS system libraries. Other platforms, provider/browser workflows and the remaining Git/search/extension differences need further work; see [RISK_REGISTER.md](../RISK_REGISTER.md).
+--standalone-info reports interactiveTui, miniTui, embeddedTerminal and hostClipboard true, **fullParity false**. dist/build-report.json and dist/verification.json identify the exact file; neither is a runtime dependency. Node's FFI still uses OS system libraries. Other platforms, provider/browser workflows and the remaining Git/search/extension differences need further work. See the [validation record](VALIDATION.md) for completed checks and the [clipboard documentation](tui/clipboard/README.md) for native platform qualification commands.
 `],
   ])
 

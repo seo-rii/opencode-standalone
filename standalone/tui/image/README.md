@@ -37,13 +37,13 @@ the portable implementations. The source archive's SHA-256 is checked against
 isolated `.cache/image-source` overlay. `LICENSES.txt` contains the image vendor
 notices and is also included in the generated factory module.
 
-Build and validate from `standalone/` with the project's Node executable:
+Build and validate from `standalone/` with Node.js 26.4 or later:
 
 ```sh
-../.tools/node/bin/node tui/image/build.mjs
-../.tools/node/bin/node tui/image/proof.mjs
-../.tools/node/bin/node tui/image/parity.mjs
-../.tools/node/bin/node --test --test-concurrency=1 tui/image/image.test.mjs tui/backend/image.test.mjs
+node tui/image/build.mjs
+node tui/image/proof.mjs
+node tui/image/parity.mjs
+node --test --test-concurrency=1 tui/image/image.test.mjs tui/backend/image.test.mjs
 ```
 
 The computation proof covers real raw-pixel and PNG round trips, padded BGRA and

@@ -18,7 +18,7 @@ pub fn add(b: *std.Build) void {
     const install_wasm = b.addInstallArtifact(wasm, .{});
     step.dependOn(&install_wasm.step);
     const native_module = module(b, b.graph.host, b.path("renderer-native.zig"));
-    native_module.addCSourceFile(.{ .file = b.path("renderer-native.c"), .flags = &.{"-std=c17"} });
+    native_module.addCSourceFile(.{ .file = b.path("renderer-native.c"), .flags = sourceFlags(b, &.{"-std=c17"}) });
     const native = b.addExecutable(.{ .name = "opentui-renderer-reference", .root_module = native_module });
     const install_native = b.addInstallArtifact(native, .{});
     step.dependOn(&install_native.step);
@@ -55,7 +55,7 @@ pub fn moduleWithSource(b: *std.Build, target: std.Build.ResolvedTarget, root: s
     upstream.addImport("context_abi_c", api.createModule());
     const audio = b.addTranslateC(.{ .root_source_file = b.path(b.pathJoin(&.{ source_dir, "src/vendor/miniaudio/miniaudio.h" })), .target = target, .optimize = .ReleaseSafe });
     upstream.addImport("miniaudio", audio.createModule());
-    const flags: []const []const u8 = if (target.result.cpu.arch == .wasm32) &.{ "-std=c++20", "-fexceptions", "-frtti", "-fwasm-exceptions" } else &.{ "-std=c++20", "-fexceptions", "-frtti" };
+    const flags = sourceFlags(b, if (target.result.cpu.arch == .wasm32) &.{ "-std=c++20", "-fexceptions", "-frtti", "-fwasm-exceptions" } else &.{ "-std=c++20", "-fexceptions", "-frtti" });
     upstream.addIncludePath(yoga);
     upstream.addCSourceFiles(.{ .root = yoga, .files = &yoga_sources, .flags = flags });
     upstream.addCSourceFile(.{ .file = b.path(b.pathJoin(&.{ source_dir, "src/yoga-bridge.cpp" })), .flags = flags });
@@ -69,12 +69,22 @@ pub fn moduleWithSource(b: *std.Build, target: std.Build.ResolvedTarget, root: s
         upstream.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ lib, "libcxxabi/include" }) });
         upstream.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ lib, "libcxx/src" }) });
         upstream.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ lib, "libunwind/include" }) });
-        upstream.addCSourceFiles(.{ .root = .{ .cwd_relative = lib }, .files = &.{ "libcxxabi/src/cxa_exception.cpp", "libcxxabi/src/cxa_personality.cpp" }, .flags = &abi_flags });
+        upstream.addCSourceFiles(.{ .root = .{ .cwd_relative = lib }, .files = &.{ "libcxxabi/src/cxa_exception.cpp", "libcxxabi/src/cxa_personality.cpp" }, .flags = sourceFlags(b, &abi_flags) });
         // Select these real exception-enabled allocation operators over Zig's
         // default weak, no-exceptions definitions in the WASI C++ runtime.
-        upstream.addCSourceFile(.{ .file = .{ .cwd_relative = b.pathJoin(&.{ lib, "libcxxabi/src/stdlib_new_delete.cpp" }) }, .flags = &(abi_flags ++ .{"-D_LIBCPP_WEAK="}) });
-        upstream.addCSourceFile(.{ .file = .{ .cwd_relative = b.pathJoin(&.{ lib, "libunwind/src/Unwind-wasm.c" }) }, .flags = &.{ "-std=c23", "-fwasm-exceptions", "-DNDEBUG", "-D_LIBUNWIND_HIDE_SYMBOLS" } });
+        upstream.addCSourceFile(.{ .file = .{ .cwd_relative = b.pathJoin(&.{ lib, "libcxxabi/src/stdlib_new_delete.cpp" }) }, .flags = sourceFlags(b, &(abi_flags ++ .{"-D_LIBCPP_WEAK="})) });
+        upstream.addCSourceFile(.{ .file = .{ .cwd_relative = b.pathJoin(&.{ lib, "libunwind/src/Unwind-wasm.c" }) }, .flags = sourceFlags(b, &.{ "-std=c23", "-fwasm-exceptions", "-DNDEBUG", "-D_LIBUNWIND_HIDE_SYMBOLS" }) });
     }
     result.addImport("opentui", upstream);
     return result;
+}
+
+// __FILE__ is used by real assertion handlers even after debug sections are
+// stripped. Keep those diagnostics useful without embedding the build machine.
+pub fn sourceFlags(b: *std.Build, flags: []const []const u8) []const []const u8 {
+    const mapped = b.allocator.alloc([]const u8, flags.len + 2) catch @panic("out of memory");
+    @memcpy(mapped[0..flags.len], flags);
+    mapped[flags.len] = b.fmt("-ffile-prefix-map={s}=/src/opencode-standalone/standalone/tui", .{b.pathFromRoot("")});
+    mapped[flags.len + 1] = b.fmt("-ffile-prefix-map={s}=/src/zig/lib", .{b.graph.zig_lib_directory.path.?});
+    return mapped;
 }

@@ -82,6 +82,7 @@ if (version.status !== 0 || version.stdout.trim() !== manifest.zig.version) thro
 const built = spawnSync(zig, ["build", "-Dfactory=true", "factory", "-j2", "--prefix", path.join(cache, "factory-build"), "--cache-dir", path.join(cache, "factory-zig-build"), "--global-cache-dir", path.join(cache, "zig-global")], { cwd: directory, stdio: "inherit" })
 if (built.status !== 0) throw new Error(`Factory reactor build failed (${built.status ?? built.signal})`)
 const wasm = await readFile(path.join(cache, "factory-build/bin/opentui-factory.wasm"))
+if (wasm.includes(Buffer.from(directory))) throw new Error("Factory reactor retained its private build root; check C/C++ source-prefix mapping")
 const compressed = brotliCompressSync(wasm, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } })
 const module = new WebAssembly.Module(wasm)
 if (WebAssembly.Module.imports(module).some((entry) => entry.module !== "wasi_snapshot_preview1" && !(entry.module === "opentui_standalone" && entry.name === "scene_measure" && entry.kind === "function"))) throw new Error("Factory reactor unexpectedly requires an unknown host import")
