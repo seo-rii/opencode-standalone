@@ -1,0 +1,10 @@
+{
+  "package": "@opentui/core",
+  "version": "0.6.6",
+  "files": {
+    "index.node.js": "a9745662486f4372c0b68c32752cf9d5ad24e22dabcdd627f35d25b071ad1b9c",
+    "testing.js": "0623c15b72388f58c2c0218cc2206f4f19cd5b5d0ebf2e6ed9eeb9b8c8c22fe8",
+    "chunk-node-p43t2gam.js": "f1aaf9231f285f9e51eb82786e9b98601007d6d9cc300cc675255735988d9e46",
+    "chunk-node-2rg7pskw.js": "cbea62e987ed6264933df87706c9b162884d7144e40e6b76f8a3bbab6b1c9995"
+  }
+}

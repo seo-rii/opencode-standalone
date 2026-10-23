@@ -1,0 +1,14 @@
+{
+  "upstreamOpenTuiCommit": "212eb27da4adf5b907031ad153fc6a5b9f713fbf",
+  "sourceOfPins": "packages/native/src/vendor/update-zig-deps.sh",
+  "vendorArchiveSha256": "fd11249ba7c39276030a4ff62805cfe9c3e8ec96e86f68f70704ef8df109c20d",
+  "ghostty": {
+    "commit": "727b8a02f8734840de664c060678dd66f01931f6",
+    "upstreamArchiveSha256": "1cdde6bd3c1071de0f4ba489ee526361045e967170e8b50ca6f1d3fe0c624adf",
+    "reportedVersion": "0.1.0-dev+b988efcf"
+  },
+  "uucode": {
+    "commit": "2826a37a4562284fdacd8fa029d49509cc9bffcd",
+    "upstreamArchiveSha256": "7e76fc7fab1e7ac728c52b35bbb3e5b8c639841abfc7fe1a4bcb13050594bc9e"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/plugin-hooks.ts",
+    "src/persistent-pty.ts",
+    "src/persistent-pty-entry.ts",
+    "src/virtual.d.ts",
+    "filesystem/git-ignore.ts",
+    "filesystem/search.ts",
+    "filesystem/walk.ts",
+    "filesystem/watcher.ts",
+    "git/backend.ts",
+    "git/git-index.ts",
+    "pty/index.ts",
+    "persistent-pty/*.ts"
+  ]
+}

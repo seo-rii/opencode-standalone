@@ -1,0 +1,29 @@
+{
+  "package": "@opentui/core",
+  "version": "0.6.6",
+  "node": ">=26.4.0",
+  "nativePackages": [
+    "@opentui/core-darwin-x64",
+    "@opentui/core-darwin-arm64",
+    "@opentui/core-linux-x64",
+    "@opentui/core-linux-arm64",
+    "@opentui/core-win32-x64",
+    "@opentui/core-win32-arm64",
+    "@opentui/core-linux-x64-musl",
+    "@opentui/core-linux-arm64-musl"
+  ],
+  "generatedAbiSymbolCount": 235,
+  "generatedAbiGroups": {
+    "scene": 46,
+    "context": 7,
+    "session": 45,
+    "text": 33,
+    "edit": 20,
+    "unicode": 3
+  },
+  "hasNodeFfiLoader": true,
+  "hasFilesystemNativeLibraryCheck": true,
+  "hasNativeDlopen": true,
+  "wasmFilesAtPackageRoot": [],
+  "note": "Parser WASM assets are not an OpenTUI renderer backend. This audit does not claim a full WASM renderer exists."
+}

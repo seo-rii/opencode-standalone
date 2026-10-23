@@ -1,0 +1,40 @@
+{
+  "opentuiVersion": "0.6.6",
+  "opentuiCommit": "212eb27da4adf5b907031ad153fc6a5b9f713fbf",
+  "sources": [
+    {
+      "path": "utf8.zig",
+      "url": "https://raw.githubusercontent.com/anomalyco/opentui/212eb27da4adf5b907031ad153fc6a5b9f713fbf/packages/native/src/utf8.zig",
+      "sha256": "2fe1c79474af4d2ae4f1ef9d973c9f42dee63e9d3504b0ff2bbeeecf8f12e0ff"
+    },
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/anomalyco/opentui/212eb27da4adf5b907031ad153fc6a5b9f713fbf/LICENSE",
+      "sha256": "d9c397a5dc5ac77a2a08fc967ea06a65317a4b5b8de48f6f732ffcb21737e3d2"
+    },
+    {
+      "path": "zig-deps.tar.gz",
+      "url": "https://raw.githubusercontent.com/anomalyco/opentui/212eb27da4adf5b907031ad153fc6a5b9f713fbf/packages/native/src/vendor/zig-deps.tar.gz",
+      "sha256": "fd11249ba7c39276030a4ff62805cfe9c3e8ec96e86f68f70704ef8df109c20d"
+    },
+    {
+      "path": "UUCODE-UNICODE-LICENSE",
+      "url": "https://raw.githubusercontent.com/jacobsandlund/uucode/8ad04b756f85a5ba1ac8d2b8cb48d0946f06b630/licenses/LICENSE_unicode",
+      "sha256": "1eda5a3b026870c737b22e8bcd4954338612c790db688242e003f41a4fa95175"
+    },
+    {
+      "path": "UUCODE-UTF8-LICENSE",
+      "url": "https://raw.githubusercontent.com/jacobsandlund/uucode/8ad04b756f85a5ba1ac8d2b8cb48d0946f06b630/licenses/LICENSE_Bjoern_Hoehrmann",
+      "sha256": "de219cece932aad5a817bf763393d8d149d378a15d2ad5320e3331eac07626dd"
+    }
+  ],
+  "zig": {
+    "version": "0.16.0",
+    "url": "https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz",
+    "sha256": "70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
+  },
+  "renderer": {
+    "url": "https://codeload.github.com/anomalyco/opentui/tar.gz/212eb27da4adf5b907031ad153fc6a5b9f713fbf",
+    "sha256": "6181fb658193b40f8d4be444f3f865a27f70d6c26afded780a3b949688fbb0d7"
+  }
+}

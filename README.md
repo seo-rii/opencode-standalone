@@ -1,3 +1,5 @@
+> **opencode-standalone experimental fork:** [build and run instructions](README.standalone.md) · [compatibility](standalone/COMPATIBILITY.md). The single-file Node distribution includes the original interactive TUI; see the compatibility notes for remaining platform and feature gaps.
+
 <p align="center">
   <a href="https://opencode.ai">
     <picture>

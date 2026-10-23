@@ -1,0 +1,11 @@
+.{
+    .name = .opencode_unicode_wasm,
+    .version = "0.0.1",
+    .fingerprint = 0x99fbbaad456e4e45,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .uucode = .{ .path = ".cache/upstream/zig-deps/uucode-opentui" },
+        .ghostty = .{ .path = ".cache/factory-deps/ghostty", .lazy = true },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "bridge.zig", "renderer-bridge.zig", "renderer-build.zig", "renderer-exceptions.cpp", "renderer-native.zig", "renderer-native.c", "factory-bridge.zig", "factory-build.zig", "factory-text.zig", "factory-image.zig", "factory-binary.zig", "factory-terminal.zig", "factory-native.zig", "image", "terminal", ".cache/upstream", ".cache/renderer-source", ".cache/factory-source", ".cache/image-source", ".cache/factory-deps" },
+}
