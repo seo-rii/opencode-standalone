@@ -8,6 +8,7 @@ import { build, transformWithEsbuild } from "vite"
 import solid from "vite-plugin-solid"
 import { notices } from "./notices.mjs"
 import { packArtifact } from "./pack.mjs"
+import { minifyApplication } from "./minify.mjs"
 import { pluginModules } from "./plugin-modules.mjs"
 import { tuiRuntime } from "./tui-runtime.mjs"
 import { standaloneTui } from "./tui-backend.mjs"
@@ -257,7 +258,8 @@ if (await webAssetFingerprint() !== webAssetSourceSha256) throw new Error("Brows
 const minify = async (code) => (await transformWithEsbuild(code, "opencode-standalone.mjs", {
   loader: "js", target: "node26", minify: true, keepNames: true, legalComments: "none", tsconfigRaw: "{}",
 })).code
-const appCode = await minify(app)
+const application = await minifyApplication(await minify(app), path.join(directory, ".cache/minify"))
+const appCode = application.code
 const ptyCode = await minify(pty)
 const daemonCode = await minify(daemon)
 const tuiCode = await minify(tui)
@@ -303,6 +305,7 @@ const report = {
   assets: assetReport,
   payloads: packed.records,
   compiledBytes: { app: Buffer.byteLength(app), minifiedApp: Buffer.byteLength(appCode) },
+  minification: { application: { ...application, code: undefined } },
   compilation: { reused: repack, cache: path.relative(directory, inputCache), tuiPayloadRebuilt: true, hostClipboardSourceSha256, webAssetSourceSha256 },
   tui: {
     factoryWasm: { bytes: tuiWasm.length, compressedBytes: tuiWasmCompressed.length, sha256: createHash("sha256").update(tuiWasm).digest("hex") },
