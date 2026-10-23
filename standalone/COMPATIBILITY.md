@@ -4,7 +4,7 @@ This experimental fork pins OpenCode 2.1.2 at f7577a1f65b465b35b0dcb30b23f22c14e
 
 | Area | Implementation and current limits |
 | --- | --- |
-| Distribution | One JS file containing compressed JS/WASM/assets, base95 storage and preserved function names. Built-in graph imports only Node built-ins; no extracted addon/WASM files or runtime npm installation. |
+| Distribution | One JS file containing compressed JS/WASM/assets, utf8-words storage and preserved function names. Built-in graph imports only Node built-ins; no extracted addon/WASM files or runtime npm installation. |
 | CLI / agent / API | Original upstream default/mini TUI, agent and server with host adapters. Actual copied-CLI Korean input/resize/local reply/exit is tested; other providers, auth methods, ACP and remote workflows need additional coverage. |
 | OpenTUI / Solid / parser | Published OpenTUI 0.6.6 classes and Solid components use the real WASM Context/Session/Scene/Yoga/editor/buffers. Actual embedded tree-sitter worker/grammars, syntax highlighting, measurements, recording, selections and output tickets are exercised. |
 | TUI images / ICC | Original PNG/JPEG/GIF/WebP, LittleCMS2, resize/composite and NativeImage/NativeImagePool/ImageRenderable. Generation-checked binary transfer preserves exact snapshots and scoped pixel leases; >64 MiB raw images and >4 MiB PNGs are tested. Upstream encoded 64 MiB/decoded 100 MiB, 25-million-pixel and 16,384-dimension limits remain intact. Factory memory grows on demand to 1 GiB; input/output windows are each bounded to 256 MiB. Extreme padding and aggregate memory can exceed these budgets and reject explicitly. |

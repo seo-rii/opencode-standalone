@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { tmpdir } from "node:os"
 import { brotliDecompressSync } from "node:zlib"
 import { archiveDirectory } from "./archive.mjs"
-import { decodeAssetArchive } from "./runtime.mjs"
+import { decodeAssetArchive, legacyArchiveMagic, maxRawGroupBytes, maxWasmGroupBytes } from "./runtime.mjs"
 
 async function fixture(input, options) {
   const directory = await mkdtemp(join(tmpdir(), "opencode-web-runtime-"))
@@ -33,7 +33,7 @@ function metadata(bytes, mutate) {
 
 test("index inspection and passthrough responses leave unrelated raw groups compressed", async () => {
   const raw = Buffer.from("real terminal font data".repeat(20))
-  const bytes = await fixture({ "font.ttf": raw, "binary.wasm": Buffer.from([0, 97, 115, 109]) })
+  const bytes = await fixture({ "font.ttf": raw, "binary.woff2": Buffer.from([0, 97, 115, 109]) })
   const bodyAt = 12 + bytes.readUInt32LE(8)
   const index = JSON.parse(bytes.subarray(12, bodyAt))
   const fontGroup = index.groups[index.files["font.ttf"][0]]
@@ -41,9 +41,32 @@ test("index inspection and passthrough responses leave unrelated raw groups comp
   const decoded = decodeAssetArchive(bytes)
   assert.ok(Object.hasOwn(decoded.brotli, "font.ttf"))
   assert.ok(Object.keys(decoded.files).includes("font.ttf"))
-  assert.deepEqual(brotliDecompressSync(decoded.brotli["binary.wasm"]), Buffer.from([0, 97, 115, 109]))
+  assert.deepEqual(brotliDecompressSync(decoded.brotli["binary.woff2"]), Buffer.from([0, 97, 115, 109]))
   assert.equal(decoded.files["index.html"], "<main />")
   assert.throws(() => decoded.files["font.ttf"])
+})
+
+test("WASM group inspection stays lazy and version 2 archives remain readable", async () => {
+  const wasm = Buffer.from([0, 97, 115, 109, 1, 0, 0, 0])
+  const bytes = await fixture({ "binary.wasm": wasm })
+  const bodyAt = 12 + bytes.readUInt32LE(8)
+  const index = JSON.parse(bytes.subarray(12, bodyAt))
+  const group = index.groups[index.files["binary.wasm"][0]]
+  bytes.fill(255, bodyAt + group[0], bodyAt + group[0] + group[1])
+  const decoded = decodeAssetArchive(bytes)
+  assert.ok(Object.hasOwn(decoded.files, "binary.wasm"))
+  assert.ok(Object.keys(decoded.brotli).includes("binary.wasm"))
+  assert.equal(decoded.files["index.html"], "<main />")
+  assert.throws(() => decoded.brotli["binary.wasm"])
+
+  const font = Buffer.from("legacy font bytes")
+  const legacy = await fixture({ "font.ttf": font, "binary.woff2": wasm })
+  legacy.write(legacyArchiveMagic, 0, "ascii")
+  const prior = decodeAssetArchive(legacy)
+  assert.equal(prior.files["index.html"], "<main />")
+  assert.deepEqual(prior.files["font.ttf"], font)
+  assert.deepEqual(brotliDecompressSync(prior.brotli["binary.woff2"]), wasm)
+  assert.throws(() => decodeAssetArchive(metadata(legacy, (value) => { value.groups[0][3] = 2 })), /bounds/)
 })
 
 test("raw and response caches evict their least recently used groups within their byte limits", async () => {
@@ -87,6 +110,7 @@ test("archive boundaries reject bad headers, truncation, invalid groups and inva
   assert.throws(() => decodeAssetArchive(bytes.subarray(0, bytes.length - 1)), /bounds/)
   assert.throws(() => decodeAssetArchive(metadata(bytes, (index) => { index.groups[0][0] = -1 })), /bounds/)
   assert.throws(() => decodeAssetArchive(metadata(bytes, (index) => { index.groups[0][3] = 4 })), /bounds/)
+  assert.throws(() => decodeAssetArchive(metadata(bytes, (index) => { index.groups[0][2] = maxRawGroupBytes + 1 })), /bounds/)
   assert.throws(() => decodeAssetArchive(metadata(bytes, (index) => { index.files["font.ttf"][1] = 99999 })), /group/)
   assert.throws(() => decodeAssetArchive(metadata(bytes, (index) => { index.files["font.ttf"][0] = 99999 })), /group/)
   assert.throws(() => decodeAssetArchive(bytes, { rawCacheBytes: -1 }), /cache size/)
@@ -94,4 +118,8 @@ test("archive boundaries reject bad headers, truncation, invalid groups and inva
     index.groups[index.files["font.ttf"][0]][2] += 1
   }))
   assert.throws(() => mismatch.files["font.ttf"], /raw size differs/)
+  const wasm = await fixture({ "binary.wasm": Buffer.from([0, 97, 115, 109]) })
+  assert.throws(() => decodeAssetArchive(metadata(wasm, (index) => {
+    index.groups[index.files["binary.wasm"][0]][2] = maxWasmGroupBytes + 1
+  })), /bounds/)
 })

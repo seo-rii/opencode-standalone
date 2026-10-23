@@ -21,7 +21,7 @@ node dist/opencode-standalone.js run --standalone -m provider/model "요청 내�
 
 빌드에는 개발 의존성과 컴파일 도구가 필요합니다. 배포할 때는 dist/opencode-standalone.js 하나만 복사합니다. 모델 인증·설정은 원본 방식을 따르며, 실험적 Node 내장 FFI가 필요하면 런처가 같은 Node를 --experimental-ffi로 다시 실행합니다. --standalone-licenses로 포함된 고지를 확인할 수 있습니다.
 
-현재 검증 파일은 **32,943,477바이트 (32.94 MB)**이며, 최초 43,942,518바이트 대비 **25.03% 감소**했습니다. 정확히 이 파일이 **161/161개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
+현재 검증 파일은 **29,570,945바이트 (29.57 MB)**이며, 최초 43,942,518바이트 대비 **32.71% 감소**했습니다. 정확히 이 파일이 **170/170개 테스트**, 실패·건너뜀 0개를 통과했습니다. [검증 기록](standalone/VALIDATION.md)과 [용량 기록](standalone/SIZE.md)에 SHA-256과 내역을 기록합니다.
 
 ## 구현
 

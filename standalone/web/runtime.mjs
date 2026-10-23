@@ -1,13 +1,16 @@
 import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib"
 
-export const archiveMagic = "OCWEB02\n"
-export const archiveFormat = "standalone-hybrid-brotli-v2"
+export const archiveMagic = "OCWEB03\n"
+export const legacyArchiveMagic = "OCWEB02\n"
+export const archiveFormat = "standalone-hybrid-brotli-v3"
 export const maxRawGroupBytes = 32 * 1024 * 1024
+export const maxWasmGroupBytes = 40 * 1024 * 1024
 
 /** Browser responses stay lazy: only the requested raw group is decompressed. */
 export function decodeAssetArchive(input, options = {}) {
   const archive = Buffer.from(input.buffer, input.byteOffset, input.byteLength)
-  if (archive.length < 12 || archive.subarray(0, 8).toString("ascii") !== archiveMagic)
+  const magic = archive.subarray(0, 8).toString("ascii")
+  if (archive.length < 12 || (magic !== archiveMagic && magic !== legacyArchiveMagic))
     throw new Error("Invalid standalone web archive header")
   const bodyAt = 12 + archive.readUInt32LE(8)
   if (bodyAt > archive.length) throw new Error("Truncated standalone web archive index")
@@ -18,12 +21,12 @@ export function decodeAssetArchive(input, options = {}) {
     if (!Array.isArray(row) || row.length !== 4 || !row.every(Number.isSafeInteger))
       throw new Error("Invalid standalone web archive group")
     const [offset, stored, raw, mode] = row
-    if (offset < 0 || stored < 0 || raw < 0 || (mode !== 0 && mode !== 1) || stored > archive.length - bodyAt - offset || (mode === 0 && raw > maxRawGroupBytes))
+    if (offset < 0 || stored < 0 || raw < 0 || (mode !== 0 && mode !== 1 && (mode !== 2 || magic === legacyArchiveMagic)) || stored > archive.length - bodyAt - offset || (mode === 0 && raw > maxRawGroupBytes) || (mode === 2 && raw > maxWasmGroupBytes))
       throw new Error("Standalone web archive group exceeds its bounds")
     return { bytes: archive.subarray(bodyAt + offset, bodyAt + offset + stored), raw, mode }
   })
   const rawCache = boundedCache(options.rawCacheBytes ?? 48 * 1024 * 1024)
-  const brotliCache = boundedCache(options.brotliCacheBytes ?? 8 * 1024 * 1024)
+  const brotliCache = boundedCache(options.brotliCacheBytes ?? 16 * 1024 * 1024)
   const files = Object.create(null)
   const brotli = Object.create(null)
   for (const [path, row] of Object.entries(index.files)) {
@@ -35,7 +38,10 @@ export function decodeAssetArchive(input, options = {}) {
       throw new Error("Standalone web archive file exceeds its group")
     const raw = () => {
       const bytes = rawCache(groupIndex, () => {
-        const restored = brotliDecompressSync(group.bytes, { maxOutputLength: Math.max(1, group.raw) })
+        const restored = brotliDecompressSync(group.bytes, {
+          maxOutputLength: Math.max(1, group.raw),
+          ...(group.mode === 2 ? { params: { [constants.BROTLI_DECODER_PARAM_LARGE_WINDOW]: 1 } } : {}),
+        })
         if (restored.length !== group.raw) throw new Error("Standalone web archive raw size differs")
         return restored
       })
@@ -48,7 +54,9 @@ export function decodeAssetArchive(input, options = {}) {
     Object.defineProperty(brotli, path, {
       enumerable: true,
       get: () => group.mode === 1 ? group.bytes : brotliCache(row.join(":"), () => brotliCompressSync(raw(), {
-        params: { [constants.BROTLI_PARAM_QUALITY]: 4 },
+        // Large-window Brotli is an internal storage format. HTTP responses
+        // use standard Brotli, with a faster encoder for large WASM files.
+        params: { [constants.BROTLI_PARAM_QUALITY]: group.mode === 2 ? 1 : 4 },
       })),
     })
   }

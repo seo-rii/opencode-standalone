@@ -1,6 +1,8 @@
 export const archiveMagic: string
+export const legacyArchiveMagic: string
 export const archiveFormat: string
 export const maxRawGroupBytes: number
+export const maxWasmGroupBytes: number
 export function decodeAssetArchive(bytes: Uint8Array, options?: {
   rawCacheBytes?: number
   brotliCacheBytes?: number

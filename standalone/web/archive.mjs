@@ -3,7 +3,7 @@ import { extname, join, relative, sep } from "node:path"
 import { createHash } from "node:crypto"
 import { brotliCompress, brotliDecompressSync, constants } from "node:zlib"
 import { promisify } from "node:util"
-import { archiveMagic, archiveFormat, maxRawGroupBytes } from "./runtime.mjs"
+import { archiveMagic, archiveFormat, maxRawGroupBytes, maxWasmGroupBytes } from "./runtime.mjs"
 
 const compress = promisify(brotliCompress)
 const rawExtensions = new Set([".js", ".ttf", ".css", ".svg", ".html", ".json", ".txt", ".xml", ".webmanifest"])
@@ -16,6 +16,9 @@ export async function archiveDirectory(directory, options = {}) {
   const groupBytes = options.groupBytes ?? maxRawGroupBytes
   if (!Number.isSafeInteger(groupBytes) || groupBytes < 1 || groupBytes > maxRawGroupBytes)
     throw new Error("Invalid standalone raw group size")
+  const wasmGroupBytes = options.wasmGroupBytes ?? maxWasmGroupBytes
+  if (!Number.isSafeInteger(wasmGroupBytes) || wasmGroupBytes < 1 || wasmGroupBytes > maxWasmGroupBytes)
+    throw new Error("Invalid standalone WASM group size")
   const quality = 11
   const concurrency = 4
   const entries = new Array(paths.length)
@@ -37,11 +40,12 @@ export async function archiveDirectory(directory, options = {}) {
     if (unique.has(entry.sha256)) continue
     const extension = extname(entry.path)
     const grouped = entry.raw.length <= groupBytes && (rawExtensions.has(extension) || entry.path === "_headers")
-    let group = grouped ? current.get(extension) : undefined
-    if (!group || group.rawBytes + entry.raw.length > groupBytes) {
-      group = { mode: grouped ? 0 : 1, entries: [], rawBytes: 0, index: groups.length }
+    const wasm = extension === ".wasm" && entry.raw.length <= wasmGroupBytes
+    let group = grouped || wasm ? current.get(extension) : undefined
+    if (!group || group.rawBytes + entry.raw.length > (wasm ? wasmGroupBytes : groupBytes)) {
+      group = { mode: wasm ? 2 : grouped ? 0 : 1, entries: [], rawBytes: 0, index: groups.length }
       groups.push(group)
-      if (grouped) current.set(extension, group)
+      if (grouped || wasm) current.set(extension, group)
     }
     unique.set(entry.sha256, { group: group.index, offset: group.rawBytes, bytes: entry.raw.length })
     group.entries.push(entry)
@@ -53,15 +57,20 @@ export async function archiveDirectory(directory, options = {}) {
       const group = groups[next++]
       const raw = Buffer.concat(group.entries.map((entry) => entry.raw))
       const previous = group.mode === 1 ? options.brotli?.[group.entries[0].path] : undefined
-      const cached = group.mode === 0 && options.compressedGroups ? options.compressedGroups.get(createHash("sha256").update(raw).digest("hex")) : undefined
-      group.compressed = cached && brotliDecompressSync(cached).equals(raw) ? Buffer.from(cached) : previous && brotliDecompressSync(previous).equals(raw) ? Buffer.from(previous) : await compress(raw, {
+      const decode = {
+        maxOutputLength: Math.max(1, raw.length),
+        ...(group.mode === 2 ? { params: { [constants.BROTLI_DECODER_PARAM_LARGE_WINDOW]: 1 } } : {}),
+      }
+      const cached = group.mode !== 1 && options.compressedGroups ? options.compressedGroups.get(createHash("sha256").update(raw).digest("hex")) : undefined
+      group.compressed = cached && brotliDecompressSync(cached, decode).equals(raw) ? Buffer.from(cached) : previous && brotliDecompressSync(previous, decode).equals(raw) ? Buffer.from(previous) : await compress(raw, {
         params: {
           [constants.BROTLI_PARAM_QUALITY]: quality,
           [constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
           ...(group.mode === 0 ? { [constants.BROTLI_PARAM_LGWIN]: 24 } : {}),
+          ...(group.mode === 2 ? { [constants.BROTLI_PARAM_LGWIN]: 25, [constants.BROTLI_PARAM_LARGE_WINDOW]: 1 } : {}),
         },
       })
-      if (!brotliDecompressSync(group.compressed).equals(raw)) throw new Error("Archive compression round-trip failed")
+      if (!brotliDecompressSync(group.compressed, decode).equals(raw)) throw new Error("Archive compression round-trip failed")
     }
   }))
   const index = Object.create(null)
@@ -87,16 +96,19 @@ export async function archiveDirectory(directory, options = {}) {
       return {
         path: entry.path, bytes: entry.raw.length, sha256: entry.sha256,
         group: location.group, groupOffset: location.offset,
-        groupStoredBytes: group.compressed.length, compression: group.mode === 0 ? "group-brotli" : "brotli",
+        groupStoredBytes: group.compressed.length, compression: group.mode === 2 ? "wasm-group-brotli" : group.mode === 0 ? "group-brotli" : "brotli",
       }
     }),
     compression: {
       format: archiveFormat, brotliQuality: quality, concurrency,
       uniqueAssets: unique.size, duplicateAssets: entries.length - unique.size,
       groups: groups.length, rawGroups: groups.filter((group) => group.mode === 0).length,
+      wasmGroups: groups.filter((group) => group.mode === 2).length,
       passthroughGroups: groups.filter((group) => group.mode === 1).length,
       maxRawGroupBytes: Math.max(0, ...groups.filter((group) => group.mode === 0).map((group) => group.rawBytes)),
       rawGroupLimitBytes: groupBytes,
+      maxWasmGroupBytes: Math.max(0, ...groups.filter((group) => group.mode === 2).map((group) => group.rawBytes)),
+      wasmGroupLimitBytes: wasmGroupBytes, wasmBrotliWindow: 25,
     },
   }
 }

@@ -3,7 +3,8 @@ import { test } from "node:test"
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { brotliCompressSync, brotliDecompressSync } from "node:zlib"
+import { createHash } from "node:crypto"
+import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib"
 import { archiveDirectory } from "./archive.mjs"
 import { decodeAssetArchive, archiveFormat } from "./runtime.mjs"
 
@@ -19,11 +20,12 @@ test("hybrid archive preserves every URL and raw response with deterministic ded
       "_assets/parser.wasm": wasm,
       "_assets/parser-alias.wasm": wasm,
       "_assets/other.wasm": Buffer.from([0, 97, 115, 109, 2, 0, 0, 0]),
+      "_assets/font.woff2": Buffer.from("upstream WOFF2 bytes"),
       "_assets/empty.js": Buffer.alloc(0),
       "_assets/empty-alias.js": Buffer.alloc(0),
     }
-    const priorWasm = brotliCompressSync(wasm)
-    const options = { brotli: { "_assets/parser-alias.wasm": priorWasm } }
+    const priorFont = brotliCompressSync(input["_assets/font.woff2"])
+    const options = { brotli: { "_assets/font.woff2": priorFont } }
     await Promise.all(Object.entries(input).map(([path, bytes]) => writeFile(join(root, path), bytes)))
     await writeFile(join(root, "_assets/main.js.map"), "not a runtime asset")
     const archive = await archiveDirectory(root, options)
@@ -36,11 +38,53 @@ test("hybrid archive preserves every URL and raw response with deterministic ded
       assert.deepEqual(brotliDecompressSync(decoded.brotli[path]), bytes)
     }
     assert.equal(decoded.brotli["_assets/parser.wasm"], decoded.brotli["_assets/parser-alias.wasm"])
-    assert.deepEqual(decoded.brotli["_assets/parser.wasm"], priorWasm)
+    assert.deepEqual(decoded.brotli["_assets/font.woff2"], priorFont)
+    assert.equal(archive.compression.wasmGroups, 1)
+    assert.equal(archive.files.find((file) => file.path === "_assets/parser.wasm").compression, "wasm-group-brotli")
     assert.equal(decoded.brotli["_assets/empty.js"], decoded.brotli["_assets/empty-alias.js"])
     const repeated = await archiveDirectory(root, options)
     assert.deepEqual(repeated.bytes, archive.bytes)
     assert.deepEqual(repeated.files, archive.files)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test("WASM groups preserve empty files and use a separate bounded large-window dictionary", async () => {
+  const root = await mkdtemp(join(tmpdir(), "opencode-web-wasm-groups-"))
+  try {
+    const input = {
+      "index.html": Buffer.from("<main />"), "sw.js": Buffer.from("install()"),
+      "a.wasm": Buffer.alloc(8, 1), "alias.wasm": Buffer.alloc(8, 1),
+      "b.wasm": Buffer.alloc(8, 2), "empty.wasm": Buffer.alloc(0), "large.wasm": Buffer.alloc(11, 3),
+    }
+    await Promise.all(Object.entries(input).map(([path, bytes]) => writeFile(join(root, path), bytes)))
+    const archive = await archiveDirectory(root, { wasmGroupBytes: 10 })
+    assert.ok(archive.compression.maxWasmGroupBytes <= 10)
+    assert.equal(archive.compression.wasmBrotliWindow, 25)
+    assert.equal(archive.files.find((file) => file.path === "large.wasm").compression, "brotli")
+    assert.notEqual(archive.files.find((file) => file.path === "a.wasm").group, archive.files.find((file) => file.path === "b.wasm").group)
+    const decoded = decodeAssetArchive(archive.bytes)
+    for (const [path, bytes] of Object.entries(input)) {
+      assert.deepEqual(Buffer.from(decoded.files[path]), bytes)
+      // The default decoder rejects large-window HTTP streams, so this also
+      // verifies that internal large-window data never leaks into responses.
+      assert.deepEqual(brotliDecompressSync(decoded.brotli[path]), bytes)
+    }
+    assert.equal(decoded.brotli["a.wasm"], decoded.brotli["alias.wasm"])
+    const bodyAt = 12 + archive.bytes.readUInt32LE(8)
+    const index = JSON.parse(archive.bytes.subarray(12, bodyAt))
+    const group = index.groups[index.files["a.wasm"][0]]
+    const stored = archive.bytes.subarray(bodyAt + group[0], bodyAt + group[0] + group[1])
+    assert.throws(() => brotliDecompressSync(stored))
+    const raw = brotliDecompressSync(stored, { params: { [constants.BROTLI_DECODER_PARAM_LARGE_WINDOW]: 1 } })
+    const cached = await archiveDirectory(root, {
+      wasmGroupBytes: 10,
+      compressedGroups: new Map([[createHash("sha256").update(raw).digest("hex"), stored]]),
+    })
+    assert.deepEqual(cached.bytes, archive.bytes)
+    await assert.rejects(archiveDirectory(root, { wasmGroupBytes: 0 }), /WASM group size/)
+    await assert.rejects(archiveDirectory(root, { wasmGroupBytes: 41 * 1024 * 1024 }), /WASM group size/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
