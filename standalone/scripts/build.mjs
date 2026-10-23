@@ -21,7 +21,7 @@ const directory = path.join(root, "standalone")
 const tuiPreview = process.argv.includes("--tui-preview")
 const fromTuiPreview = process.argv.includes("--from-tui-preview")
 const repack = process.argv.includes("--repack")
-const payloadEncoding = "utf8-words"
+const payloadEncoding = "utf8-ans"
 if (fromTuiPreview && !repack) throw new Error("--from-tui-preview requires --repack to explicitly select the compiled preview cache")
 const tuiModule = "opencode-standalone:tui"
 const require = createRequire(import.meta.url)

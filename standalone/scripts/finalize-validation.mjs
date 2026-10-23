@@ -12,8 +12,8 @@ const repository = resolve(directory, "..")
 const baseline = { bytes: 43_942_518, sha256: "09793cdadc6642dd48e343d67bbbe9a4320c407e151a5901115ea7555ba2ecb8" }
 const headlessBytes = 35_628_036
 const publishedBytes = 37_595_298
-const previousBytes = 32_943_477
-const requiredTests = ["test/tui-cli.test.ts", "test/browser-pty.test.mjs", "test/encoding-memory.test.mjs", "test/pack.test.mjs", "test/utf8-encoding.test.mjs", "web/archive.test.mjs", "web/runtime.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
+const previousBytes = 29_570_945
+const requiredTests = ["test/tui-cli.test.ts", "test/browser-pty.test.mjs", "test/encoding-memory.test.mjs", "test/minify.test.mjs", "test/pack.test.mjs", "test/utf8-encoding.test.mjs", "test/utf8-ans.test.mjs", "web/archive.test.mjs", "web/runtime.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
 
 /** Publish documentation only after the exact complete artifact has a green receipt. */
 export async function finalizeValidation() {
@@ -48,6 +48,12 @@ export async function finalizeValidation() {
   assert.ok(Array.isArray(report.modules) && report.modules.length > 0, "Build must list its included modules")
   assert.ok(Array.isArray(report.pluginModules) && report.pluginModules.length > 0, "Build must list its public plugin modules")
   assert.equal(report.external, "Node.js built-in modules only", "Build contains a different runtime dependency profile")
+  const manifest = await json("package.json")
+  assert.equal(report.minification?.application?.name, "terser", "Build must record its application minifier")
+  assert.equal(report.minification.application.version, manifest.devDependencies.terser, "Minifier differs from the pinned build dependency")
+  assert.equal(report.minification.application.options.keep_fnames, true, "Application must preserve function names")
+  assert.equal(report.minification.application.options.keep_classnames, true, "Application must preserve class names")
+  assert.equal(report.minification.application.options.compress.keep_fargs, true, "Application must preserve function argument counts")
   const factory = report.tui?.factoryWasm
   assert.ok(Number.isSafeInteger(factory?.bytes) && factory.bytes > 0, "Build must contain the actual TUI factory WASM")
   assert.ok(Number.isSafeInteger(factory.compressedBytes) && factory.compressedBytes > 0, "Build must record the compressed TUI factory")
@@ -61,7 +67,7 @@ export async function finalizeValidation() {
     const record = report.payloads?.[name]
     for (const field of ["offset", "length", "storedBytes", "bytes"]) assert.ok(Number.isSafeInteger(record?.[field]) && record[field] >= 0, `Invalid ${name} payload ${field}`)
     assert.ok(record.bytes > 0 && record.length > 0, `Empty ${name} payload`)
-    assert.ok(["base95", "utf8-words"].includes(record.encoding), `Unsupported ${name} payload encoding`)
+    assert.ok(["base95", "utf8-words", "utf8-ans"].includes(record.encoding), `Unsupported ${name} payload encoding`)
     assert.equal(record.encoding, report.payloads.app.encoding, "Packed payload encodings differ")
     assert.equal(typeof record.brotli, "boolean", `Invalid ${name} compression flag`)
   }
@@ -233,9 +239,11 @@ The final command checks all hashes, sizes, successful counts, required test fil
 
 The complete verified file is **${n(bytes.length)} bytes**, ${compared(baseline.bytes)} than the original **${n(baseline.bytes)} bytes** (SHA-256 ${baseline.sha256}), ${compared(publishedBytes)} than the first public **${n(publishedBytes)}-byte** distribution, and ${compared(previousBytes)} than the previous **${n(previousBytes)}-byte** release. Compared with the earlier **${n(headlessBytes)}-byte headless checkpoint**, it is ${compared(headlessBytes)}; it includes the actual default/mini TUI, Solid, parser worker, native image/ICC resources, embedded Ghostty terminal and desktop clipboard protocols. Its current SHA-256 is ${sha256}.
 
-The application is minified with keepNames enabled, Brotli-compressed with a 16 MiB window and stored as comment-safe **${report.payloads.app.encoding}**. This shares repeated parser resources without changing the JavaScript or function names. The TUI factory has an independent compressed module inside the same JS file; it is not a second distribution file. Standard Node APIs decode the selected payload without extracting modules, WASM, addons or browser assets.
+The application is minified with esbuild keepNames followed by Terser ${report.minification.application.version}, preserving function/class names and function argument counts. It is Brotli-compressed with a 16 MiB window and stored as comment-safe **${report.payloads.app.encoding}**. The additional minification reduced the measured compressed application from 5,401,886 to 5,284,357 bytes. This build-only pass took about 6.5 minutes on the measured host; exact source, options and tool-version matches reuse a hash-checked cache. The TUI factory has an independent compressed module inside the same JS file; it is not a second distribution file. Standard Node APIs decode the selected payload without extracting modules, WASM, addons or browser assets.
 
-The payload encoding uses fixed four-byte UTF-8 words and a pinned Unicode range table. It contains no NUL, ASCII controls, bidi/format controls, surrogates, Unicode noncharacters or comment-closing delimiters. The complete file remains valid UTF-8 JavaScript. Its Unicode source can use roughly 20–30 MiB more parsing memory than ASCII-only source; measured startup time stayed within run-to-run variation after decoder optimization. The legacy base95 packing API remains available for comparison.
+The payload encoding uses a fixed-integer rANS model over a pinned safe Unicode alphabet, approaching the alphabet's capacity of 6.85 bits per UTF-8 byte. It contains no NUL, ASCII controls, bidi/format controls, surrogates, Unicode noncharacters or comment-closing delimiters. The complete file remains valid UTF-8 JavaScript. Compared on the previous payloads, it saves 356,317 bytes over four-byte codewords. Five interleaved measurements of the final validated decoder added about 140 ms of application decoding CPU and 322 ms when the web payload is first decoded. Parser-only checks changed CPU by about 3 ms and reduced median peak RSS by about 3.7 MiB. Its Unicode source can use roughly 20–30 MiB more parsing memory than ASCII-only source. The legacy base95 and four-byte UTF-8 packing APIs remain available for comparison.
+
+Five pairs of copied-file \`--version\` runs compare the previous distribution with this exact final artifact, using fresh HOME/XDG/cwd, an empty PATH, --no-addons and preenabled FFI. Median process CPU rises from 3,266 to 3,446 ms (+5.5%); median peak RSS falls from 563 to 534 MiB. The complete application and payload decoder are included in these measurements. Concurrent verification affected wall time, so these figures describe the measured host rather than a general startup guarantee.
 
 | Payload | Input bytes | Stored bytes | UTF-8 bytes |
 | --- | ---: | ---: | ---: |

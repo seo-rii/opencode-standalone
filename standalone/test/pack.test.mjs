@@ -49,7 +49,7 @@ test("comment escapes preserve every two-byte input and reject malformed stuffin
   }
 })
 
-for (const encoding of ["base95", "utf8-words"]) for (const compressed of [false, true]) test(`${encoding} artifact reads ${compressed ? "Brotli" : "raw"} payloads from copied CommonJS and ESM files`, { timeout: 30_000 }, async (t) => {
+for (const encoding of ["base95", "utf8-words", "utf8-ans"]) for (const compressed of [false, true]) test(`${encoding} artifact reads ${compressed ? "Brotli" : "raw"} payloads from copied CommonJS and ESM files`, { timeout: 30_000 }, async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "opencode-pack-"))
   t.after(() => rm(directory, { recursive: true, force: true }))
   const bytes = randomBytes(65_536)
@@ -101,7 +101,7 @@ for (const encoding of ["base95", "utf8-words"]) for (const compressed of [false
 test("packed-payload tooling rejects unknown codecs and inconsistent records", () => {
   assert.throws(() => packArtifact({}, {}, { encoding: "unknown" }), /encoding/)
   assert.throws(() => decodePackedPayload(Buffer.alloc(0), { encoding: "unknown", length: 0 }), /encoding/)
-  for (const encoding of ["base95", "utf8-words"]) {
+  for (const encoding of ["base95", "utf8-words", "utf8-ans"]) {
     const packed = packArtifact({}, { app: { bytes: "payload", compressed: false } }, { encoding })
     const base = Number(packed.bytes.subarray(0, 20_000).toString("utf8").match(/const base = Number\("(\d+)"\)/)[1])
     const entry = packed.records.app
