@@ -8,7 +8,10 @@ export function packArtifact(metadata, inputs) {
   const entries = Object.entries(inputs).map(([name, input]) => {
     const raw = Buffer.from(input.bytes)
     const data = input.compressed === false ? raw : brotliCompressSync(raw, {
-      params: { [constants.BROTLI_PARAM_QUALITY]: input.quality ?? 6 },
+      params: {
+        [constants.BROTLI_PARAM_QUALITY]: input.quality ?? 6,
+        [constants.BROTLI_PARAM_LGWIN]: input.window ?? 22,
+      },
     })
     const encoded = encodePayload(data)
     const record = { offset, length: encoded.length, encoding: "base95", brotli: input.compressed !== false, storedBytes: data.length, bytes: raw.length }

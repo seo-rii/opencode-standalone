@@ -264,7 +264,8 @@ const packed = packArtifact({
   name: "opencode-standalone", upstream, experimental: true, runtime: "Node.js >=26.4",
   embeddedWasm: true, browserAssets: !!web, interactiveTui: true, miniTui: true, embeddedTerminal: true, hostClipboard: true, fullParity: false,
 }, {
-  app: { bytes: appCode, quality: tuiPreview ? 4 : 11 }, pty: { bytes: ptyCode }, daemon: { bytes: daemonCode }, licenses: { bytes: licenses },
+  // A 16 MiB window can share parser resources across this 28 MB module.
+  app: { bytes: appCode, quality: tuiPreview ? 4 : 11, window: 24 }, pty: { bytes: ptyCode }, daemon: { bytes: daemonCode }, licenses: { bytes: licenses },
   tui: { bytes: tuiCode, quality: 11 },
   web: { bytes: web ?? Buffer.from([2, 0, 0, 0, 123, 125]), quality: 6 },
 })
