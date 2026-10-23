@@ -14,6 +14,8 @@
     "src/persistent-pty.ts",
     "src/persistent-pty-entry.ts",
     "src/virtual.d.ts",
+    "web/assets.ts",
+    "../packages/cli/src/virtual.d.ts",
     "filesystem/git-ignore.ts",
     "filesystem/search.ts",
     "filesystem/walk.ts",

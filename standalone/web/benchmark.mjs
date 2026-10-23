@@ -31,5 +31,5 @@ async function measure({ file, quality }) {
     params: { [constants.BROTLI_PARAM_QUALITY]: quality, [constants.BROTLI_PARAM_SIZE_HINT]: body.length },
   })
   if (!brotliDecompressSync(compressed).equals(body)) throw new Error(`Round-trip failed: ${file.path}`)
-  results.push({ path: file.path, bytes: body.length, quality, compressedBytes: compressed.length, baselineBytes: file.compressedBytes, milliseconds: Math.round(performance.now() - started) })
+  results.push({ path: file.path, bytes: body.length, quality, compressedBytes: compressed.length, baselineCompression: file.compression, baselineGroupBytes: file.groupStoredBytes, milliseconds: Math.round(performance.now() - started) })
 }

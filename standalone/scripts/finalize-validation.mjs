@@ -6,18 +6,20 @@ import { basename, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { brotliDecompressSync } from "node:zlib"
 import { alphabet, decodePayload } from "./encoding.mjs"
+import { archiveFormat, decodeAssetArchive } from "../web/runtime.mjs"
 
 const directory = fileURLToPath(new URL("../", import.meta.url))
 const repository = resolve(directory, "..")
 const baseline = { bytes: 43_942_518, sha256: "09793cdadc6642dd48e343d67bbbe9a4320c407e151a5901115ea7555ba2ecb8" }
 const headlessBytes = 35_628_036
-const requiredTests = ["test/tui-cli.test.ts", "test/encoding-memory.test.mjs", "test/pack.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
+const publishedBytes = 37_595_298
+const requiredTests = ["test/tui-cli.test.ts", "test/browser-pty.test.mjs", "test/encoding-memory.test.mjs", "test/pack.test.mjs", "web/archive.test.mjs", "tui/backend/image.test.mjs", "tui/backend/terminal.test.mjs", "tui/backend/binary.test.mjs", "tui/image/image.test.mjs", "tui/backend/production.test.mjs", "tui/backend/host.test.mjs", "tui/clipboard.test.mjs", "tui/clipboard/host.test.mjs", "tui/clipboard/x11.test.mjs", "tui/clipboard/wayland.test.mjs", "tui/clipboard/native-worker.test.mjs", "tui/clipboard/image.test.mjs", "tui/clipboard/macos.test.mjs", "tui/clipboard/windows.test.mjs", "tui/parser/parser.test.mjs"]
 
 /** Publish documentation only after the exact complete artifact has a green receipt. */
 export async function finalizeValidation() {
   const artifact = join(directory, "dist/opencode-standalone.js")
-  const [upstream, report, verification, equivalence, terminalSources, bytes] = await Promise.all([
-    json("UPSTREAM.json"), json("dist/build-report.json"), json("dist/verification.json"), json(".cache/size/web-equivalence.json"), json("tui/terminal/sources.json"), readFile(artifact),
+  const [upstream, report, verification, equivalence, terminalSources, webManifest, bytes] = await Promise.all([
+    json("UPSTREAM.json"), json("dist/build-report.json"), json("dist/verification.json"), json(".cache/size/web-equivalence.json"), json("tui/terminal/sources.json"), json(".cache/web/manifest.json"), readFile(artifact),
   ])
   assert.match(upstream.commit, /^[a-f0-9]{40}$/, "UPSTREAM.json must pin a complete source commit")
   for (const field of ["repository", "sourceVersion", "distributionVersion"]) assert.ok(typeof upstream[field] === "string" && upstream[field].length > 0, `UPSTREAM.json is missing ${field}`)
@@ -53,6 +55,8 @@ export async function finalizeValidation() {
   assert.deepEqual(report.tui.embeddedTerminal, terminalSources, "Embedded terminal source pins differ from the build receipt")
   assert.deepEqual(report.tui.hostClipboard, { platforms: { linux: ["x11", "wayland"], darwin: ["macos"], win32: ["windows"] }, nativeWorkerEmbedded: true }, "Build does not record the desktop clipboard providers")
   assert.match(report.compilation?.hostClipboardSourceSha256, /^[a-f0-9]{64}$/, "Build must identify the compiled host clipboard sources")
+  const webSources = await Promise.all(["web/assets.ts", "web/runtime.mjs"].map(async (file) => [file, hash(await readFile(join(directory, file)))]))
+  assert.equal(report.compilation?.webAssetSourceSha256, hash(JSON.stringify(webSources)), "Browser archive decoder changed after compilation")
   for (const name of ["app", "pty", "daemon", "tui", "licenses", "web"]) {
     const record = report.payloads?.[name]
     for (const field of ["offset", "length", "storedBytes", "bytes"]) assert.ok(Number.isSafeInteger(record?.[field]) && record[field] >= 0, `Invalid ${name} payload ${field}`)
@@ -61,9 +65,11 @@ export async function finalizeValidation() {
     assert.equal(typeof record.brotli, "boolean", `Invalid ${name} compression flag`)
   }
 
-  // Repacking changes the outer encoding/compression, not this proven browser archive.
+  // The historical receipt chains every original URL and byte to the new format.
   assert.equal(equivalence.baselineSha256, baseline.sha256, "Browser comparison belongs to a different baseline")
   assert.equal(equivalence.identical, true, "Browser equivalence was not established")
+  assert.equal(equivalence.format, archiveFormat, "Browser comparison uses a different archive format")
+  assert.equal(webManifest.archive.format, archiveFormat, "Browser manifest uses a different archive format")
   assert.equal(equivalence.assetsCompared, 1688, "Browser equivalence must cover all original URLs")
   assert.equal(equivalence.baselineArchiveBytes, 27_101_364, "Browser comparison has a different original archive size")
   const base = bytes.subarray(0, 16_384).toString("ascii").match(/const base = Number\("(\d{10})"\);/)
@@ -76,10 +82,14 @@ export async function finalizeValidation() {
   assert.equal(archive.length, web.bytes, "Decoded browser payload size differs from the build receipt")
   assert.equal(archive.length, equivalence.newArchiveBytes, "Browser archive size differs from the comparison receipt")
   assert.equal(hash(archive), equivalence.newArchiveSha256, "Browser archive differs from the byte-preserved comparison")
-  assert.ok(archive.length >= 4, "Browser archive header is truncated")
-  const indexLength = archive.readUInt32LE(0)
-  assert.ok(indexLength > 0 && 4 + indexLength <= archive.length, "Browser archive index is truncated")
-  assert.equal(Object.keys(JSON.parse(archive.subarray(4, 4 + indexLength).toString("utf8"))).length, 1688, "Actual browser archive does not contain 1,688 URLs")
+  const browser = decodeAssetArchive(archive)
+  assert.equal(Object.keys(browser.files).length, 1688, "Actual browser archive does not contain 1,688 URLs")
+  assert.deepEqual(Object.keys(browser.files).sort(), webManifest.files.map((file) => file.path).sort(), "Browser URLs differ from the build manifest")
+  for (const file of webManifest.files) {
+    const body = Buffer.from(browser.files[file.path])
+    assert.equal(body.length, file.bytes, `Browser byte count changed: ${file.path}`)
+    assert.equal(hash(body), file.sha256, `Browser content changed: ${file.path}`)
+  }
 
   // This header command returns before application boot, FFI or user configuration.
   const info = spawnSync(process.execPath, ["--no-addons", artifact, "--standalone-info"], {
@@ -187,7 +197,7 @@ Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons
 - Original agent/API behavior with a local provider driving read, search, edit, shell and image tools; Photon actually resizes the PNG. Server restart preserves session messages and edited files.
 - Promise and Effect plugins sharing the bundled SDK/functions/schema namespaces; no installed SDK/Effect package is supplied to those fixtures.
 - HTTP/WebSocket ordinary and persistent PTYs, same-PID server handoff, live/replayed Unicode, Ghostty snapshots/rows/checkpoints, resize and cleanup.
-- Original browser HTML, JavaScript, CSS, service worker, fonts and WASM. Decoding this artifact's browser payload matches the archive previously compared byte-for-byte at every one of its **1,688 URLs**.
+- Original browser HTML, JavaScript, CSS, service worker, fonts and WASM. Decoding this artifact's hybrid browser archive preserves every byte at all **1,688 URLs**; the historical comparison receipt and original build manifest are both checked. Brotli and identity HTTP responses are exercised through the original web handler.
 
 Published OpenTUI classes run through real Context/Session/Scene/Yoga WASM: styled Unicode, editor history/selections/callbacks, scoped writable cell/pixel leases, native output tickets, custom paint recordings and Yoga measurements. Actual Solid components stream Markdown/code, scroll and resize, switch routes and edit the new focused input at 44/100 columns; the real parser worker is joined during cleanup. Kernel-input tests use a real PTY queue and tcflush, preserving later input.
 
@@ -216,19 +226,21 @@ npm run verify
 node scripts/finalize-validation.mjs
 \`\`\`
 
-The final command checks all hashes, sizes, successful counts, required test files, artifact metadata and browser-archive identity before updating these documents. It also requires .cache/size/web-equivalence.json from the historical baseline comparison; archive identity ties that 1,688-asset comparison to this exact packed file. Other providers, complete browser workflows and other platforms remain unverified.
+The final command checks all hashes, sizes, successful counts, required test files, artifact metadata and browser-archive identity before updating these documents. It also requires .cache/size/web-equivalence.json from the historical baseline comparison and verifies each of the 1,688 decoded assets against the original build manifest. Other providers, complete browser workflows and other platforms remain unverified.
 `],
     [join(directory, "SIZE.md"), `# Distribution size
 
-The complete verified file is **${n(bytes.length)} bytes**, ${compared(baseline.bytes)} than the original **${n(baseline.bytes)} bytes** (SHA-256 ${baseline.sha256}). Compared with the earlier **${n(headlessBytes)}-byte headless checkpoint**, it is ${compared(headlessBytes)}; it now includes the actual default/mini TUI, Solid, parser worker, native image/ICC resources, embedded Ghostty terminal and desktop clipboard protocols. Its current SHA-256 is ${sha256}.
+The complete verified file is **${n(bytes.length)} bytes**, ${compared(baseline.bytes)} than the original **${n(baseline.bytes)} bytes** (SHA-256 ${baseline.sha256}), and ${compared(publishedBytes)} than the first public **${n(publishedBytes)}-byte** distribution. Compared with the earlier **${n(headlessBytes)}-byte headless checkpoint**, it is ${compared(headlessBytes)}; it includes the actual default/mini TUI, Solid, parser worker, native image/ICC resources, embedded Ghostty terminal and desktop clipboard protocols. Its current SHA-256 is ${sha256}.
 
-The application is minified with keepNames enabled, Brotli-compressed and stored as comment-safe **${report.payloads.app.encoding}**. The TUI factory has an independent compressed module inside the same JS file; it is not a second distribution file. Standard Node APIs decode the selected payload without extracting modules, WASM, addons or browser assets.
+The application is minified with keepNames enabled, Brotli-compressed with a 16 MiB window and stored as comment-safe **${report.payloads.app.encoding}**. This shares repeated parser resources without changing the JavaScript or function names. The TUI factory has an independent compressed module inside the same JS file; it is not a second distribution file. Standard Node APIs decode the selected payload without extracting modules, WASM, addons or browser assets.
 
 | Payload | Input bytes | Stored bytes | ASCII bytes |
 | --- | ---: | ---: | ---: |
 ${payloadRows}
 
-Input sizes describe modules or the already compressed browser archive before outer packing. Browser assets use Brotli quality 11 with shared identical payloads and four bounded build workers. The browser archive shrank from **${n(equivalence.baselineArchiveBytes)}** to **${n(equivalence.newArchiveBytes)} bytes**; the original ${n(equivalence.assetsCompared)} URLs and every decompressed byte were preserved. The current packed archive decodes to that same SHA-256: ${equivalence.newArchiveSha256}.
+Input sizes describe modules or the hybrid browser archive before outer packing. Related JavaScript, text and raw fonts share Brotli quality 11 groups, each limited to 32 MiB before compression. Office WASM and already compressed media keep individual Brotli payloads. Identical assets share storage. The browser archive shrank from **${n(equivalence.baselineArchiveBytes)}** to **${n(equivalence.newArchiveBytes)} bytes**; the original ${n(equivalence.assetsCompared)} URLs and every decompressed byte were preserved. The current packed archive decodes to SHA-256 ${equivalence.newArchiveSha256}.
+
+Groups are decompressed on demand with a 48 MiB cache. Brotli HTTP responses for grouped assets are generated at quality 4 and cached up to 8 MiB; requests without Brotli read the original bytes directly. The original web handler retains content types, CSP, caching and encoding negotiation. Web assets remain unloaded during CLI startup. Larger application windows and browser caches trade some runtime memory for the smaller distribution.
 
 The file retains the original Office WASM, fonts, browser code and all tested runtime features. Image/ICC and embedded-terminal vendor code is embedded WASM; system libc supplies host PTYs and input flushing. Larger compressed builds can take longer; their development tools are not runtime npm dependencies.
 

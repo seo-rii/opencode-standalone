@@ -2,13 +2,13 @@
 
 Validated on Linux x64 with Node.js **26.4.0** against OpenCode **f7577a1f65b465b35b0dcb30b23f22c14e3b5460** (2.1.2). Full upstream parity remains **false**.
 
-The exact dist/opencode-standalone.js is **37,595,298 bytes**, 6,347,220 bytes (14.44%) smaller than the original 43,942,518-byte distribution. SHA-256:
+The exact dist/opencode-standalone.js is **32,943,477 bytes**, 10,999,041 bytes (25.03%) smaller than the original 43,942,518-byte distribution. SHA-256:
 
 ```text
-235247505b90a72fa5ac31f8f9c1d660888343b40940c389e29a66ac9684c9a5
+14f490bf9e2bb26fb592fe78e0b387d0b96efe9c32af27e8adc588327f18fb87
 ```
 
-The matching verification receipt records **156/156 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T09:16:57.316Z through 2026-10-23T09:19:56.048Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,060 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,079,241 bytes before Brotli, 879,135 bytes compressed, SHA-256 513324093b300fcd8ac5a988dfda23d60a3b58f2208ad2533bc58bfd00926552.
+The matching verification receipt records **161/161 passing tests, 0 failures, 0 skips, exit 0**. Execution: 2026-10-23T09:55:59.987Z through 2026-10-23T09:57:09.932Z. Its test list includes the complete CLI, published TUI image and terminal resources, Solid component, parser, clipboard and kernel-input-flush suites. The build records 4,060 included modules and 427 public plugin/Effect module specifiers. The embedded TUI factory is 4,079,241 bytes before Brotli, 879,135 bytes compressed, SHA-256 513324093b300fcd8ac5a988dfda23d60a3b58f2208ad2533bc58bfd00926552.
 
 Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons and no adjacent packages. They exercise:
 
@@ -18,7 +18,7 @@ Copied-artifact tests use an empty PATH, isolated HOME/XDG/database, --no-addons
 - Original agent/API behavior with a local provider driving read, search, edit, shell and image tools; Photon actually resizes the PNG. Server restart preserves session messages and edited files.
 - Promise and Effect plugins sharing the bundled SDK/functions/schema namespaces; no installed SDK/Effect package is supplied to those fixtures.
 - HTTP/WebSocket ordinary and persistent PTYs, same-PID server handoff, live/replayed Unicode, Ghostty snapshots/rows/checkpoints, resize and cleanup.
-- Original browser HTML, JavaScript, CSS, service worker, fonts and WASM. Decoding this artifact's browser payload matches the archive previously compared byte-for-byte at every one of its **1,688 URLs**.
+- Original browser HTML, JavaScript, CSS, service worker, fonts and WASM. Decoding this artifact's hybrid browser archive preserves every byte at all **1,688 URLs**; the historical comparison receipt and original build manifest are both checked. Brotli and identity HTTP responses are exercised through the original web handler.
 
 Published OpenTUI classes run through real Context/Session/Scene/Yoga WASM: styled Unicode, editor history/selections/callbacks, scoped writable cell/pixel leases, native output tickets, custom paint recordings and Yoga measurements. Actual Solid components stream Markdown/code, scroll and resize, switch routes and edit the new focused input at 44/100 columns; the real parser worker is joined during cleanup. Kernel-input tests use a real PTY queue and tcflush, preserving later input.
 
@@ -47,4 +47,4 @@ npm run verify
 node scripts/finalize-validation.mjs
 ```
 
-The final command checks all hashes, sizes, successful counts, required test files, artifact metadata and browser-archive identity before updating these documents. It also requires .cache/size/web-equivalence.json from the historical baseline comparison; archive identity ties that 1,688-asset comparison to this exact packed file. Other providers, complete browser workflows and other platforms remain unverified.
+The final command checks all hashes, sizes, successful counts, required test files, artifact metadata and browser-archive identity before updating these documents. It also requires .cache/size/web-equivalence.json from the historical baseline comparison and verifies each of the 1,688 decoded assets against the original build manifest. Other providers, complete browser workflows and other platforms remain unverified.

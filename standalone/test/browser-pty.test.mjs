@@ -11,12 +11,17 @@ test("copied single file serves the upstream browser HTML, JS, CSS, service work
   const isolated = await sandbox(t)
   const server = await isolated.serve()
 
-  async function asset(route, mime, name = route.replace(/^\//, "")) {
+  async function asset(route, mime, name = route.replace(/^\//, ""), acceptEncoding) {
     const expected = files.get(name)
     assert.ok(expected, `${name} is absent from the browser build manifest`)
-    const response = await server.request(route)
+    const response = await server.request(route, acceptEncoding ? { headers: { "accept-encoding": acceptEncoding } } : undefined)
     assert.equal(response.status, 200, `${route}: ${response.status}\n${diagnostic(server.output)}`)
     assert.match(response.headers.get("content-type") ?? "", mime, route)
+    if (acceptEncoding && name !== "index.html") {
+      const encoding = acceptEncoding === "br" ? "br" : acceptEncoding.includes("gzip") ? "gzip" : null
+      assert.equal(response.headers.get("content-encoding"), encoding)
+      assert.match(response.headers.get("vary") ?? "", /accept-encoding/i)
+    }
     const bytes = Buffer.from(await response.arrayBuffer())
     assert.equal(bytes.length, expected.bytes, `${route}: served byte count differs from the browser build`)
     assert.equal(createHash("sha256").update(bytes).digest("hex"), expected.sha256, `${route}: served bytes differ from the browser build`)
@@ -32,6 +37,12 @@ test("copied single file serves the upstream browser HTML, JS, CSS, service work
     ...modules.map((route) => asset(route, /(?:text|application)\/(?:java|ecma)script/i)),
     ...styles.map((route) => asset(route, /text\/css/i)),
   ])
+  // Both the grouped path and the original handler's negotiation must retain
+  // identical bytes, including clients that explicitly refuse Brotli.
+  for (const encoding of ["br", "identity", "br;q=0, gzip"]) {
+    await asset(modules[0], /(?:text|application)\/(?:java|ecma)script/i, undefined, encoding)
+  }
+  await asset("/index.html", /text\/html/i, undefined, "br")
 
   const worker = await asset("/sw.js", /(?:text|application)\/(?:java|ecma)script/i)
   assert.match(worker.toString("utf8"), /addEventListener\("(?:fetch|install|activate)"/)
@@ -41,6 +52,11 @@ test("copied single file serves the upstream browser HTML, JS, CSS, service work
   const font = manifest.files.find((entry) => entry.path.endsWith(".woff2"))
   assert.ok(font, "The real browser build must include a WOFF2 font")
   assert.equal((await asset(`/${font.path}`, /(?:font\/woff2|application\/font-woff)/i)).subarray(0, 4).toString("ascii"), "wOF2")
+  const rawFont = manifest.files.find((entry) => entry.path.endsWith(".ttf"))
+  assert.ok(rawFont, "The real browser build must include a grouped raw font")
+  await asset(`/${rawFont.path}`, /font\/ttf/i, undefined, "br")
+  const office = manifest.files.filter((entry) => entry.path.endsWith(".wasm")).toSorted((a, b) => b.bytes - a.bytes)[0]
+  await asset(`/${office.path}`, /application\/wasm/i, undefined, "br")
   assert.deepEqual(await readdir(isolated.paths.bin), ["opencode-standalone.js"])
 })
 

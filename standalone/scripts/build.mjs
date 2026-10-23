@@ -11,6 +11,7 @@ import { packArtifact } from "./pack.mjs"
 import { pluginModules } from "./plugin-modules.mjs"
 import { tuiRuntime } from "./tui-runtime.mjs"
 import { standaloneTui } from "./tui-backend.mjs"
+import { archiveMagic } from "../web/runtime.mjs"
 
 await import("./prepare.mjs")
 const root = fileURLToPath(new URL("../../", import.meta.url))
@@ -54,7 +55,14 @@ async function hostClipboardFingerprint() {
   return createHash("sha256").update(JSON.stringify(hashes)).digest("hex")
 }
 
+async function webAssetFingerprint() {
+  const files = ["web/assets.ts", "web/runtime.mjs"]
+  const hashes = await Promise.all(files.map(async (file) => [file, createHash("sha256").update(await readFile(path.join(directory, file))).digest("hex")]))
+  return createHash("sha256").update(JSON.stringify(hashes)).digest("hex")
+}
+
 const aliases = new Map([
+  ["packages/cli/src/app-assets.ts", "standalone/web/assets.ts"],
   ["packages/cli/src/commands/handlers/uninstall.ts", "standalone/src/uninstall.ts"],
   ["packages/cli/src/services/updater.ts", "standalone/src/updater.ts"],
   ["packages/core/src/ripgrep.ts", "standalone/filesystem/ripgrep.ts"],
@@ -117,6 +125,11 @@ function standalonePlugin() {
     },
     async transform(code, id) {
       const file = id.replaceAll("\\", "/")
+      if (file.endsWith("/packages/cli/src/services/web-ui.ts")) {
+        // The hybrid archive generates Brotli lazily. Testing membership must
+        // not compress an asset for an identity-only request's Vary header.
+        code = replace(code, '!html && brotli?.[name] !== undefined', '!html && brotli && Object.hasOwn(brotli, name)', file)
+      }
       if (file.endsWith("/packages/core/src/persistent-pty/daemon.ts")) {
         code = replace(code, '["daemon", "--runtime-dir", root, "--name", id]', '[...process.execArgv, path.resolve(process.argv[1]), "--standalone-persistent-pty-daemon", "daemon", "--runtime-dir", root, "--name", id]', file)
       }
@@ -222,10 +235,12 @@ const inputCache = fromTuiPreview ? path.join(directory, ".cache/tui-integration
 // the native renderer alone is rebuilt by --repack. Never label an old cached
 // application as supporting new host providers.
 const hostClipboardSourceSha256 = await hostClipboardFingerprint()
+const webAssetSourceSha256 = await webAssetFingerprint()
 if (repack) {
   const saved = JSON.parse(await readFile(path.join(inputCache, "graph.json"), "utf8"))
   if (!saved.tuiPayload) throw new Error("This cache predates the full TUI payload; compile it once without --repack")
   if (saved.hostClipboardSourceSha256 !== hostClipboardSourceSha256) throw new Error("Cached application has different host clipboard sources; rebuild without --repack")
+  if (saved.webAssetSourceSha256 !== webAssetSourceSha256) throw new Error("Cached application has a different browser archive decoder; rebuild without --repack")
   for (const name of saved.modules) modules.add(name)
   for (const [name, value] of Object.entries(saved.assets)) assets.set(name, value)
   console.log("Repacking previously compiled modules; source compilation was explicitly skipped.")
@@ -237,6 +252,7 @@ const daemon = repack ? await readFile(path.join(inputCache, "daemon.mjs"), "utf
 // file. Repacking can rebuild this boundary without recompiling the CLI graph.
 const tui = await bundle(path.join(directory, "tui/backend/index.mjs"))
 if (await hostClipboardFingerprint() !== hostClipboardSourceSha256) throw new Error("Host clipboard sources changed during compilation; rebuild from stable sources")
+if (await webAssetFingerprint() !== webAssetSourceSha256) throw new Error("Browser archive sources changed during compilation; rebuild from stable sources")
 const minify = async (code) => (await transformWithEsbuild(code, "opencode-standalone.mjs", {
   loader: "js", target: "node26", minify: true, keepNames: true, legalComments: "none", tsconfigRaw: "{}",
 })).code
@@ -253,10 +269,14 @@ await mkdir(cache, { recursive: true })
 await writeFile(path.join(cache, "app.mjs"), app)
 await writeFile(path.join(cache, "pty.mjs"), pty)
 await writeFile(path.join(cache, "daemon.mjs"), daemon)
-await writeFile(path.join(cache, "graph.json"), JSON.stringify({ modules: [...modules], assets: assetReport, tuiPayload: true, hostClipboardSourceSha256 }))
+await writeFile(path.join(cache, "graph.json"), JSON.stringify({ modules: [...modules], assets: assetReport, tuiPayload: true, hostClipboardSourceSha256, webAssetSourceSha256 }))
 const web = await readFile(path.join(directory, ".cache/web/app.archive")).catch((error) => {
   if (error.code !== "ENOENT") throw error
 })
+const emptyWebIndex = Buffer.from('{"groups":[],"files":{}}')
+const emptyWebHeader = Buffer.alloc(12)
+emptyWebHeader.write(archiveMagic, 0, "ascii")
+emptyWebHeader.writeUInt32LE(emptyWebIndex.length, 8)
 const webLicenses = web ? await readFile(path.join(directory, ".cache/web/licenses.txt"), "utf8") : ""
 const tuiLicenses = (await Promise.all(["LICENSES.txt", "yoga-LICENSE.txt", "renderer-runtime-LICENSES.txt", "parser/LICENSES.txt", "image/LICENSES.txt", "terminal/LICENSES.txt"].map((file) => readFile(path.join(directory, "tui", file), "utf8")))).join("\n")
 const licenses = await notices(root, modules, assets.keys()) + "\n" + webLicenses + "\n" + tuiLicenses
@@ -267,7 +287,7 @@ const packed = packArtifact({
   // A 16 MiB window can share parser resources across this 28 MB module.
   app: { bytes: appCode, quality: tuiPreview ? 4 : 11, window: 24 }, pty: { bytes: ptyCode }, daemon: { bytes: daemonCode }, licenses: { bytes: licenses },
   tui: { bytes: tuiCode, quality: 11 },
-  web: { bytes: web ?? Buffer.from([2, 0, 0, 0, 123, 125]), quality: 6 },
+  web: { bytes: web ?? Buffer.concat([emptyWebHeader, emptyWebIndex]), quality: 6 },
 })
 const destination = path.join(directory, tuiPreview ? ".cache/tui-integration" : "dist")
 await mkdir(destination, { recursive: true })
@@ -282,7 +302,7 @@ const report = {
   assets: assetReport,
   payloads: packed.records,
   compiledBytes: { app: Buffer.byteLength(app), minifiedApp: Buffer.byteLength(appCode) },
-  compilation: { reused: repack, cache: path.relative(directory, inputCache), tuiPayloadRebuilt: true, hostClipboardSourceSha256 },
+  compilation: { reused: repack, cache: path.relative(directory, inputCache), tuiPayloadRebuilt: true, hostClipboardSourceSha256, webAssetSourceSha256 },
   tui: {
     factoryWasm: { bytes: tuiWasm.length, compressedBytes: tuiWasmCompressed.length, sha256: createHash("sha256").update(tuiWasm).digest("hex") },
     embeddedTerminal: terminalSources,

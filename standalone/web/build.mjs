@@ -94,7 +94,7 @@ const manifest = {
   vite: version,
   serverMode: "origin",
   sentryUpload: false,
-  archive: { path: "app.archive", bytes: archive.bytes.length, sha256: createHash("sha256").update(archive.bytes).digest("hex"), format: "upstream-app-archive", ...archive.compression },
+  archive: { path: "app.archive", bytes: archive.bytes.length, sha256: createHash("sha256").update(archive.bytes).digest("hex"), ...archive.compression },
   licenses: { path: "licenses.txt", bytes: Buffer.byteLength(licenses), sha256: createHash("sha256").update(licenses).digest("hex") },
   files: archive.files,
   modules: [...modules].sort(),
